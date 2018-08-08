@@ -1,4 +1,4 @@
-# tf-plan
+# tf-plan [![Build Status](https://travis-ci.org/thiagopbueno/tf-plan.svg?branch=master)](https://travis-ci.org/thiagopbueno/tf-plan) [![License](https://img.shields.io/aur/license/yaourt.svg)](https://github.com/thiagopbueno/tf-plan/blob/master/LICENSE)
 
 Planning via gradient-based optimization in continuous MDPs using TensorFlow.
 

@@ -1,0 +1,7 @@
+numpy==1.14.2
+ply==3.11
+pyrddl>=0.1.0
+tensorflow==1.5.0
+tensorflow-tensorboard==1.5.1
+tf-rddlsim>=0.3.0
+typing==3.6.4
