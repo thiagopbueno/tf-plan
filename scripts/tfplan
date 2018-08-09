@@ -24,9 +24,24 @@ def parse_args():
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument('rddl', type=str, help='RDDL filepath')
     parser.add_argument(
-        '-b', '--batch_size',
-        type=int, default=64,
-        help='number of trajectories in a batch (default=64)'
+        '-b', '--batch-size',
+        type=int, default=100,
+        help='number of trajectories in a batch (default=100)'
+    )
+    parser.add_argument(
+        '-hr', '--horizon',
+        type=int, default=40,
+        help='number of timesteps (default=40)'
+    )
+    parser.add_argument(
+        '-e', '--epochs',
+        type=int, default=1000,
+        help='number of timesteps (default=1000)'
+    )
+    parser.add_argument(
+        '-lr', '--learning-rate',
+        type=float, default=0.01,
+        help='optimizer learning rate (default=0.001)'
     )
     parser.add_argument(
         '-v', '--verbose',
@@ -41,17 +56,28 @@ def read_file(path):
         return f.read()
 
 
-def compile(rddl):
+def parse_rddl(path):
     from pyrddl.parser import RDDLParser
-    from tfrddlsim.compiler import Compiler
-
-    # parse RDDL
     parser = RDDLParser()
     parser.build()
-    rddl = parser.parse(rddl)
+    rddl = parser.parse(read_file(path))
+    return rddl
 
-    # build RDDL2TensorFlow compiler
-    return Compiler(rddl, batch_mode=True)
+
+def compile(rddl):
+    from tfrddlsim.compiler import Compiler
+    rddl2tf = Compiler(rddl, batch_mode=True)
+    return rddl2tf
+
+
+def optimize(compiler, batch_size, horizon, epochs, learning_rate=0.001):
+    from tfplan.train.policy import OpenLoopPolicy
+    from tfplan.train.optimizer import ActionOptimizer
+    policy = OpenLoopPolicy(compiler, batch_size, horizon)
+    optimizer = ActionOptimizer(compiler, policy)
+    optimizer.build(horizon, learning_rate)
+    losses = optimizer.run(epochs)
+    return losses
 
 
 if __name__ == '__main__':
@@ -60,7 +86,10 @@ if __name__ == '__main__':
     args = parse_args()
 
     # read RDDL file
-    rddl = read_file(args.rddl)
+    rddl = parse_rddl(args.rddl)
 
     # compile RDDL to TensorFlow
     rddl2tf = compile(rddl)
+
+    # optimize actions
+    losses = optimize(rddl2tf, args.batch_size, args.horizon, args.epochs, args.learning_rate)
