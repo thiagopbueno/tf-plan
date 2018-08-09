@@ -30,7 +30,7 @@ class TestOpenLoopPolicy(unittest.TestCase):
     def setUpClass(cls):
 
         # initialize hyper-parameters
-        cls.horizon = 3
+        cls.horizon = 40
         cls.batch_size = 64
 
         # parse RDDL file
@@ -67,7 +67,7 @@ class TestOpenLoopPolicy(unittest.TestCase):
                 'one variable per action fluent per timestep')
 
             for i, t in enumerate(range(self.horizon, 0, -1)):
-                scope = 'timestep{}'.format(t)
+                scope = 'timestep{}/'.format(t)
                 policy_variables = tf.trainable_variables(scope=scope)
                 action = self.actions[i]
 
@@ -80,7 +80,7 @@ class TestOpenLoopPolicy(unittest.TestCase):
                 for fluent, shape, tensor in zip(action_fluents, action_size, action):
                     self.assertIsInstance(tensor, tf.Tensor, 'action fluent is a tf.Tensor')
 
-                    var_name = scope + '/' + fluent.replace('/', '-') + ':0'
+                    var_name = scope + fluent.replace('/', '-') + ':0'
                     self.assertIn(var_name, name2variable,
                         'variable name is the concatenation of timestep scope and fluent name')
 
