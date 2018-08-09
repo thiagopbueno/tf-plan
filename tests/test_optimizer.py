@@ -60,18 +60,6 @@ class TestActionOptimizer(unittest.TestCase):
             self.assertIsInstance(fluent, tf.Tensor, 'state fluent is a tensor')
             self.assertListEqual(fluent.shape.as_list(), tensor_size, 'fluent size is [batch_size, horizon, state_fluent_size]')
 
-    def test_interm_trajectory(self):
-        interms = self.optimizer.interms
-        interm_size = self.rddl2tf.interm_size
-        self.assertIsInstance(interms, tuple, 'interm trajectory is factored')
-        self.assertEqual(len(interms), len(interm_size),
-            'interm trajectory has all interms fluents')
-        for fluent, fluent_size in zip(interms, interm_size):
-            tensor_size = [self.batch_size, self.horizon] + list(fluent_size)
-            self.assertIsInstance(fluent, tf.Tensor, 'state fluent is a tensor')
-            self.assertListEqual(fluent.shape.as_list(), tensor_size,
-                'fluent size is [batch_size, horizon, interm_fluent_size]')
-
     def test_action_trajectory(self):
         actions = self.optimizer.actions
         action_size = self.rddl2tf.action_size

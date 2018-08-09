@@ -94,7 +94,6 @@ class ActionOptimizer(object):
         trajectories = simulator.trajectory(horizon)
         self.states = trajectories[1]
         self.actions = trajectories[2]
-        self.interms = trajectories[3]
         self.rewards = trajectories[4]
 
     def _build_loss_graph(self) -> None:
