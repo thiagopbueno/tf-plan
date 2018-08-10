@@ -19,6 +19,7 @@ from tfplan.train.policy import OpenLoopPolicy
 from tfrddlsim.compiler import Compiler
 from tfrddlsim.simulator import Simulator
 
+import sys
 import numpy as np
 import tensorflow as tf
 
@@ -67,8 +68,9 @@ class ActionOptimizer(object):
             self._build_trajectory_graph(horizon)
             self._build_loss_graph()
             self._build_optimization_graph(learning_rate)
+            self._build_solution_graph()
 
-    def run(self, epochs: int, show_progress: bool = True) -> List[np.float32]:
+    def run(self, epochs: int, show_progress: bool = True) -> List[np.array]:
         '''Runs the optimization ops for a given number of training `epochs`.
 
         Args:
@@ -76,17 +78,25 @@ class ActionOptimizer(object):
             show_progress (bool): The boolean flag for showing intermediate results.
 
         Returns:
-            List[np.float32]: The loss function over time.
+            List[np.array]: The optimized policy variables.
         '''
         with tf.Session(graph=self.graph) as sess:
             sess.run(tf.global_variables_initializer())
-            losses = []
+
+            solution = None
+            best_reward = float(-sys.maxsize)
+
             for step in range(epochs):
                 _, loss = sess.run([self._train_op, self.loss])
-                losses.append(loss)
                 if show_progress:
-                    print('Epoch {0:5}: loss = {1}\r'.format(step, loss), end='')
-            return losses
+                    print('Epoch {0:5}: loss = {1:3.6f}\r'.format(step, loss), end='')
+
+                reward, policy = sess.run([self._best_total_reward, self._best_solution])
+                if reward > best_reward:
+                    best_reward = reward
+                    solution = policy
+
+            return solution
 
     def _build_trajectory_graph(self, horizon: int) -> None:
         '''Builds the (state, action, interm, reward) trajectory ops.'''
@@ -98,7 +108,7 @@ class ActionOptimizer(object):
 
     def _build_loss_graph(self) -> None:
         '''Builds the loss ops.'''
-        self.total_reward = tf.reduce_sum(self.rewards, axis=1)
+        self.total_reward = tf.squeeze(tf.reduce_sum(self.rewards, axis=1))
         self.avg_total_reward = tf.reduce_mean(self.total_reward)
         self.loss = -self.avg_total_reward
 
@@ -106,3 +116,8 @@ class ActionOptimizer(object):
         '''Builds the training ops.'''
         self._optimizer = tf.train.RMSPropOptimizer(learning_rate)
         self._train_op = self._optimizer.minimize(self.loss)
+
+    def _build_solution_graph(self):
+        self._best_idx = tf.argmax(self.total_reward, output_type=tf.int32)
+        self._best_total_reward = self.total_reward[self._best_idx]
+        self._best_solution = self._policy[self._best_idx]

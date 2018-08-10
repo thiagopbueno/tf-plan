@@ -90,8 +90,8 @@ class TestActionOptimizer(unittest.TestCase):
         total_reward = self.optimizer.total_reward
         self.assertIsInstance(total_reward, tf.Tensor, 'total reward is a tensor')
         self.assertEqual(total_reward.dtype, tf.float32, 'total reward is a real tensor')
-        self.assertListEqual(total_reward.shape.as_list(), [self.batch_size, 1],
-            'total reward has shape [batch_size, 1]')
+        self.assertListEqual(total_reward.shape.as_list(), [self.batch_size],
+            'total reward has a scalar value for each trajectory')
 
     def test_avg_total_reward(self):
         avg_total_reward = self.optimizer.avg_total_reward
@@ -112,7 +112,10 @@ class TestActionOptimizer(unittest.TestCase):
         self.assertEqual(train_op.name, 'RMSProp')
 
     def test_optimizer_solution(self):
-        losses = self.optimizer.run(self.epochs, show_progress=False)
-        self.assertIsInstance(losses, list)
-        self.assertEqual(len(losses), self.epochs)
-        self.assertTrue(all(isinstance(l, np.float32) for l in losses))
+        action_size = self.rddl2tf.action_size
+        solution = self.optimizer.run(self.epochs, show_progress=False)
+        self.assertIsInstance(solution, list)
+        self.assertEqual(len(solution), len(action_size))
+        for param, fluent_size in zip(solution, action_size):
+            self.assertIsInstance(param, np.ndarray, 'solution is factored n-dimensional array')
+            self.assertListEqual(list(param.shape), [self.horizon] + list(fluent_size))

@@ -92,4 +92,4 @@ if __name__ == '__main__':
     rddl2tf = compile(rddl)
 
     # optimize actions
-    losses = optimize(rddl2tf, args.batch_size, args.horizon, args.epochs, args.learning_rate)
+    solution = optimize(rddl2tf, args.batch_size, args.horizon, args.epochs, args.learning_rate)
