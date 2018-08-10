@@ -55,6 +55,9 @@ class OpenLoopPolicy(Policy):
                 self._policy_variables.append(var)
             self._policy_variables = tuple(self._policy_variables)
 
+    def __getitem__(self, i):
+        return [var[i,:,:] for var in self._policy_variables]
+
     def __call__(self,
             state: Sequence[tf.Tensor],
             timestep: tf.Tensor) -> Sequence[tf.Tensor]:
