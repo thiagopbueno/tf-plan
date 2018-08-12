@@ -42,6 +42,7 @@ class TestOpenLoopPolicy(unittest.TestCase):
 
         # initialize open-loop policy
         cls.policy = OpenLoopPolicy(cls.rddl2tf, cls.batch_size, cls.horizon)
+        cls.policy.build('test')
 
         # execute policy for the given horizon and initial state
         with cls.rddl2tf.graph.as_default():
@@ -64,7 +65,7 @@ class TestOpenLoopPolicy(unittest.TestCase):
                 'one variable per action fluent')
 
             for fluent, size, var in zip(action_fluents, action_size, policy_variables):
-                var_name = fluent.replace('/', '-') + ':0'
+                var_name = 'test/' + fluent.replace('/', '-') + ':0'
                 self.assertIn(var_name, name2variable, 'variable has fluent name')
 
                 self.assertIsInstance(var, tf.Variable,

@@ -42,18 +42,26 @@ class OpenLoopPolicy(Policy):
         self._batch_size = batch_size
         self._horizon = horizon
 
-        self._build_policy_variables()
+    @property
+    def graph(self):
+        return self._compiler.graph
 
-    def _build_policy_variables(self) -> None:
+    def build(self, scope: str, initializers=None) -> None:
+        with self.graph.as_default():
+            with tf.variable_scope(scope):
+                self._build_policy_variables(initializers)
+
+    def _build_policy_variables(self, initializers=None) -> None:
         '''Builds the policy variables for each action fluent.'''
         action_fluents = self._compiler.action_fluent_ordering
         action_size = self._compiler.action_size
-        with self._compiler.graph.as_default():
-            self._policy_variables = []
-            for fluent, shape in zip(action_fluents, action_size):
-                var = self._get_policy_variable(fluent, shape)
-                self._policy_variables.append(var)
-            self._policy_variables = tuple(self._policy_variables)
+        if initializers is None:
+            initializers = [None] * len(action_fluents)
+        self._policy_variables = []
+        for fluent, shape, init in zip(action_fluents, action_size, initializers):
+            var = self._get_policy_variable(fluent, shape, init)
+            self._policy_variables.append(var)
+        self._policy_variables = tuple(self._policy_variables)
 
     def __getitem__(self, i):
         return [var[i,:,:] for var in self._policy_variables]
@@ -73,14 +81,17 @@ class OpenLoopPolicy(Policy):
         action_fluents = self._compiler.action_fluent_ordering
         bounds = self._compiler.compile_action_bound_constraints(state)
         action = []
-        with self._compiler.graph.as_default():
+        with self.graph.as_default():
             t = tf.cast(timestep[0][0], tf.int32) # TODO change timestep dtype in tfrddlsim
             for fluent, var in zip(action_fluents, self._policy_variables):
                 tensor = self._get_action_tensor(var[:,t,:], bounds[fluent])
                 action.append(tensor)
         return tuple(action)
 
-    def _get_policy_variable(self, fluent: str, fluent_shape: Sequence[int]) -> tf.Tensor:
+    def _get_policy_variable(self,
+            fluent: str,
+            fluent_shape: Sequence[int],
+            initializer=None) -> tf.Tensor:
         '''Returns the correspondig policy variable for `fluent` with `fluent_shape`.
 
         Args:
@@ -92,7 +103,9 @@ class OpenLoopPolicy(Policy):
         '''
         shape = [self._batch_size, self._horizon] + list(fluent_shape)
         name = fluent.replace('/', '-') # TODO change canonical fluent name in tfrddlsim
-        return tf.get_variable(name, dtype=tf.float32, shape=shape)
+        if initializer is not None:
+            initializer = tf.constant_initializer(initializer, dtype=tf.float32)
+        return tf.get_variable(name, dtype=tf.float32, shape=shape, initializer=initializer)
 
     def _get_action_tensor(self, policy_variable: tf.Tensor, bounds: Bounds) -> tf.Tensor:
         '''Returns the action tensor for `policy_variable` with domain
