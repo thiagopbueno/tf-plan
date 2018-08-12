@@ -53,12 +53,12 @@ class ActionOptimizer(object):
         return self._compiler.graph
 
     @property
-    def batch_size(self):
+    def batch_size(self) -> int:
         '''Returns the policy's batch size.'''
         return self._policy._batch_size
 
     @property
-    def horizon(self):
+    def horizon(self) -> int:
         '''Returns the policy's horizon.'''
         return self._policy._horizon
 
