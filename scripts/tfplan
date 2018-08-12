@@ -92,7 +92,7 @@ def evaluate(compiler, horizon, policy_variables):
     from tfplan.train.policy import OpenLoopPolicy
     from tfplan.test.evaluator import ActionEvaluator
     policy = OpenLoopPolicy(compiler, 1, horizon)
-    policy.build('test', policy_variables)
+    policy.build('test', initializers=policy_variables)
     evaluator = ActionEvaluator(compiler, policy)
     trajectories = evaluator.run()
     return trajectories

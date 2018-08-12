@@ -3,5 +3,5 @@ ply==3.11
 pyrddl>=0.1.0
 tensorflow==1.5.0
 tensorflow-tensorboard==1.5.1
-tfrddlsim>=0.4.4
+tfrddlsim>=0.4.5
 typing==3.6.4
