@@ -44,6 +44,12 @@ def parse_args():
         help='optimizer learning rate (default=0.001)'
     )
     parser.add_argument(
+        '--viz',
+        default='generic',
+        choices=('generic', 'navigation'),
+        help='type of visualizer (default=generic)'
+    )
+    parser.add_argument(
         '-v', '--verbose',
         action='store_true',
         help='verbosity mode'
@@ -74,10 +80,31 @@ def optimize(compiler, batch_size, horizon, epochs, learning_rate=0.001):
     from tfplan.train.policy import OpenLoopPolicy
     from tfplan.train.optimizer import ActionOptimizer
     policy = OpenLoopPolicy(compiler, batch_size, horizon)
+    policy.build('training')
     optimizer = ActionOptimizer(compiler, policy)
-    optimizer.build(horizon, learning_rate)
-    losses = optimizer.run(epochs)
-    return losses
+    optimizer.build(learning_rate)
+    solution = optimizer.run(epochs)
+    return solution
+
+
+def evaluate(compiler, horizon, policy_variables):
+    from tfplan.train.policy import OpenLoopPolicy
+    from tfplan.test.evaluator import ActionEvaluator
+    policy = OpenLoopPolicy(compiler, 1, horizon)
+    policy.build('test', policy_variables)
+    evaluator = ActionEvaluator(compiler, policy)
+    trajectories = evaluator.run()
+    return trajectories
+
+
+def display(compiler, trajectories, visualizer, verbose=True):
+    from tfrddlsim.viz.visualizer import BasicVisualizer
+    from tfrddlsim.viz.navigation_visualizer import NavigationVisualizer
+    if visualizer == 'generic':
+        viz = BasicVisualizer(compiler, verbose)
+    elif visualizer == 'navigation':
+        viz = NavigationVisualizer(compiler, verbose)
+    viz.render(trajectories)
 
 
 if __name__ == '__main__':
@@ -93,3 +120,9 @@ if __name__ == '__main__':
 
     # optimize actions
     solution = optimize(rddl2tf, args.batch_size, args.horizon, args.epochs, args.learning_rate)
+
+    # evaluate solution
+    trajectories = evaluate(rddl2tf, args.horizon, solution)
+
+    # render visualization
+    display(rddl2tf, trajectories, args.viz)
