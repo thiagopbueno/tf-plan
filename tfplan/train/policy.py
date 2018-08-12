@@ -14,6 +14,7 @@
 # along with tf-plan. If not, see <http://www.gnu.org/licenses/>.
 
 import tfrddlsim
+import tfrddlsim.policy
 from tfrddlsim.compiler import Compiler
 from tfrddlsim.policy import Policy
 from tfrddlsim.fluent import TensorFluent
