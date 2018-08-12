@@ -45,10 +45,11 @@ class TestActionOptimizer(unittest.TestCase):
 
         # initialize open-loop policy
         cls.policy = OpenLoopPolicy(cls.rddl2tf, cls.batch_size, cls.horizon)
+        cls.policy.build('test')
 
         # initialize ActionOptimizer
         cls.optimizer = ActionOptimizer(cls.rddl2tf, cls.policy)
-        cls.optimizer.build(cls.horizon)
+        cls.optimizer.build()
 
     def test_state_trajectory(self):
         states = self.optimizer.states
@@ -109,7 +110,7 @@ class TestActionOptimizer(unittest.TestCase):
         optimizer = self.optimizer._optimizer
         self.assertIsInstance(optimizer, tf.train.RMSPropOptimizer)
         train_op = self.optimizer._train_op
-        self.assertEqual(train_op.name, 'RMSProp')
+        self.assertEqual(train_op.name, 'action_optimizer/RMSProp')
 
     def test_optimizer_solution(self):
         action_size = self.rddl2tf.action_size

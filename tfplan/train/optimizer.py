@@ -57,7 +57,12 @@ class ActionOptimizer(object):
         '''Returns the policy's batch size.'''
         return self._policy._batch_size
 
-    def build(self, horizon: int, learning_rate: float = 0.001) -> None:
+    @property
+    def horizon(self):
+        '''Returns the policy's horizon.'''
+        return self._policy._horizon
+
+    def build(self, learning_rate: float = 0.001) -> None:
         '''Builds all graph operations necessary for optimizing actions.
 
         Args:
@@ -65,10 +70,11 @@ class ActionOptimizer(object):
             learning_rate (int): The learning rate passed to the underlying optimizer.
         '''
         with self.graph.as_default():
-            self._build_trajectory_graph(horizon)
-            self._build_loss_graph()
-            self._build_optimization_graph(learning_rate)
-            self._build_solution_graph()
+            with tf.name_scope('action_optimizer'):
+                self._build_trajectory_graph(self.horizon)
+                self._build_loss_graph()
+                self._build_optimization_graph(learning_rate)
+                self._build_solution_graph()
 
     def run(self, epochs: int, show_progress: bool = True) -> List[np.array]:
         '''Runs the optimization ops for a given number of training `epochs`.
