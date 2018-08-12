@@ -18,6 +18,7 @@
 
 import argparse
 
+import tfrddlsim.viz
 
 def parse_args():
     description = 'Planning via gradient-based optimization in TensorFlow.'
@@ -46,7 +47,7 @@ def parse_args():
     parser.add_argument(
         '--viz',
         default='generic',
-        choices=('generic', 'navigation'),
+        choices=tuple(tfrddlsim.viz.visualizers),
         help='type of visualizer (default=generic)'
     )
     parser.add_argument(
@@ -97,13 +98,9 @@ def evaluate(compiler, horizon, policy_variables):
     return trajectories
 
 
-def display(compiler, trajectories, visualizer, verbose=True):
-    from tfrddlsim.viz.visualizer import BasicVisualizer
-    from tfrddlsim.viz.navigation_visualizer import NavigationVisualizer
-    if visualizer == 'generic':
-        viz = BasicVisualizer(compiler, verbose)
-    elif visualizer == 'navigation':
-        viz = NavigationVisualizer(compiler, verbose)
+def display(compiler, trajectories, visualizer_type, verbose=True):
+    visualizer = tfrddlsim.viz.visualizers.get(visualizer_type, 'generic')
+    viz = visualizer(compiler, verbose)
     viz.render(trajectories)
 
 
