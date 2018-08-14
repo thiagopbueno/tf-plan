@@ -91,14 +91,11 @@ def compile(rddl):
 
 
 def optimize(compiler, batch_size, horizon, epochs, learning_rate=0.001):
-    from tfplan.train.policy import OpenLoopPolicy
-    from tfplan.train.optimizer import ActionOptimizer
-    policy = OpenLoopPolicy(compiler, batch_size, horizon)
-    policy.build('training')
-    optimizer = ActionOptimizer(compiler, policy)
-    optimizer.build(learning_rate)
-    solution = optimizer.run(epochs)
-    return solution
+    from tfplan.planners.open_loop_planner import OpenLoopPlanner
+    planner = OpenLoopPlanner(compiler, batch_size, horizon)
+    planner.build(learning_rate)
+    solution, policy_variables = planner.run(epochs)
+    return solution, policy_variables
 
 
 def evaluate(compiler, horizon, policy_variables):
@@ -132,10 +129,10 @@ if __name__ == '__main__':
     rddl2tf = compile(rddl)
 
     # optimize actions
-    solution = optimize(rddl2tf, args.batch_size, args.horizon, args.epochs, args.learning_rate)
+    _, policy_vars = optimize(rddl2tf, args.batch_size, args.horizon, args.epochs, args.learning_rate)
 
     # evaluate solution
-    trajectories = evaluate(rddl2tf, args.horizon, solution)
+    trajectories = evaluate(rddl2tf, args.horizon, policy_vars)
 
     # render visualization
     display(rddl2tf, trajectories, args.viz)

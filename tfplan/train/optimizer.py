@@ -76,7 +76,10 @@ class ActionOptimizer(object):
                 self._build_optimization_graph(learning_rate)
                 self._build_solution_graph()
 
-    def run(self, epochs: int, show_progress: bool = True) -> List[np.array]:
+    def run(self,
+            epochs: int,
+            initial_state=None,
+            show_progress: bool = True) -> List[np.array]:
         '''Runs the optimization ops for a given number of training `epochs`.
 
         Args:
@@ -84,30 +87,40 @@ class ActionOptimizer(object):
             show_progress (bool): The boolean flag for showing intermediate results.
 
         Returns:
-            List[np.array]: The optimized policy variables.
+            List[np.array], List[np.array]: A tuple with the optimized actions and policy variables.
         '''
         with tf.Session(graph=self.graph) as sess:
             sess.run(tf.global_variables_initializer())
 
+            feed_dict = None
+            if initial_state is not None:
+                feed_dict = { self.initial_state: initial_state }
+
             solution = None
+            policy_variables = None
             best_reward = float(-sys.maxsize)
 
             for step in range(epochs):
-                _, loss = sess.run([self._train_op, self.loss])
+                _, loss, total_reward = sess.run(
+                    [self._train_op, self.loss, self._best_total_reward],
+                    feed_dict=feed_dict)
+
+                if total_reward > best_reward:
+                    best_reward = total_reward
+                    solution, policy_variables = sess.run(
+                        [self._best_solution, self._best_variables],
+                        feed_dict=feed_dict)
+
                 if show_progress:
                     print('Epoch {0:5}: loss = {1:3.6f}\r'.format(step, loss), end='')
 
-                reward, policy = sess.run([self._best_total_reward, self._best_solution])
-                if reward > best_reward:
-                    best_reward = reward
-                    solution = policy
-
-            return solution
+            return solution, policy_variables
 
     def _build_trajectory_graph(self, horizon: int) -> None:
         '''Builds the (state, action, interm, reward) trajectory ops.'''
         simulator = Simulator(self._compiler, self._policy, self.batch_size)
         trajectories = simulator.trajectory(horizon)
+        self.initial_state = trajectories[0]
         self.states = trajectories[1]
         self.actions = trajectories[2]
         self.rewards = trajectories[4]
@@ -124,6 +137,8 @@ class ActionOptimizer(object):
         self._train_op = self._optimizer.minimize(self.loss)
 
     def _build_solution_graph(self):
+        '''Builds ops for getting best solution and corresponding policy variables.'''
         self._best_idx = tf.argmax(self.total_reward, output_type=tf.int32)
         self._best_total_reward = self.total_reward[self._best_idx]
-        self._best_solution = self._policy[self._best_idx]
+        self._best_solution = tuple(fluent[self._best_idx] for fluent in self.actions)
+        self._best_variables = self._policy[self._best_idx]

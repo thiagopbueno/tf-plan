@@ -114,8 +114,8 @@ class TestActionOptimizer(unittest.TestCase):
 
     def test_optimizer_solution(self):
         action_size = self.rddl2tf.action_size
-        solution = self.optimizer.run(self.epochs, show_progress=False)
-        self.assertIsInstance(solution, list)
+        solution, variables = self.optimizer.run(self.epochs, show_progress=False)
+        self.assertIsInstance(solution, tuple)
         self.assertEqual(len(solution), len(action_size))
         for param, fluent_size in zip(solution, action_size):
             self.assertIsInstance(param, np.ndarray, 'solution is factored n-dimensional array')
