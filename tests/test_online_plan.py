@@ -18,6 +18,7 @@ from pyrddl.parser import RDDLParser
 from tfrddlsim.compiler import Compiler
 
 from tfplan.planners.online_plan import OnlinePlanning
+from tfplan.planners.open_loop_planner import OpenLoopPlanner
 
 import numpy as np
 import tensorflow as tf
@@ -40,12 +41,12 @@ class TestOnlinePlanning(unittest.TestCase):
         cls.initial_state = cls.compiler.compile_initial_state(batch_size=1)
         cls.default_action = cls.compiler.compile_default_action(batch_size=1)
 
-    def setUp(self):
-        with tf.Session(graph=self.compiler.graph) as sess:
-            default_action = sess.run(self.default_action)
-        planner = lambda _: default_action
-        self.online_planner = OnlinePlanning(self.compiler, planner)
-        self.online_planner.build()
+        batch_size = 128
+        cls.horizon = 10
+        planner = OpenLoopPlanner(cls.compiler, batch_size, cls.horizon)
+        planner.build(learning_rate=0.05)
+        cls.online_planner = OnlinePlanning(cls.compiler, planner)
+        cls.online_planner.build()
 
     @unittest.skip('not implemented')
     def test_planning_graph(self):
@@ -88,11 +89,10 @@ class TestOnlinePlanning(unittest.TestCase):
         self.fail()
 
     def test_online_planning_cycle(self):
-        horizon = 40
-        initial_state, states, actions, rewards = self.online_planner.run(self.initial_state, horizon)
-        self.assertEqual(len(states), horizon)
-        self.assertEqual(len(actions), horizon)
-        self.assertEqual(len(rewards), horizon)
+        initial_state, states, actions, rewards = self.online_planner.run(self.initial_state, self.horizon, epochs=10, show_progress=False)
+        self.assertEqual(len(states), self.horizon)
+        self.assertEqual(len(actions), self.horizon)
+        self.assertEqual(len(rewards), self.horizon)
 
         for state in states:
             self.assertIsInstance(state, tuple)

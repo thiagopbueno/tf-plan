@@ -39,7 +39,7 @@ class OnlinePlanning(object):
         with self.graph.as_default():
             self._build_execution_graph()
 
-    def run(self, initial_state, horizon):
+    def run(self, initial_state, horizon, epochs=100, show_progress=True):
         states = []
         actions = []
         rewards = []
@@ -47,22 +47,23 @@ class OnlinePlanning(object):
         with tf.Session(graph=self.graph) as sess:
             initial_state = sess.run(initial_state)
 
-            state = initial_state
-            for step in range(horizon):
-                # plan
-                action = self._planner(state)
-                actions.append(action)
+        state = initial_state
+        for step in range(horizon):
+            # plan
+            action = self._planner(state, epochs, show_progress)
+            actions.append(action)
 
-                # execute
+            # execute
+            with tf.Session(graph=self.graph) as sess:
                 feed_dict = { self.state: state, self.action: action }
                 next_state, reward = sess.run([self.next_state, self.reward], feed_dict=feed_dict)
                 states.append(next_state)
                 rewards.append(reward[0])
 
-                # monitor
-                state = next_state
+            # monitor
+            state = next_state
 
-            return initial_state, states, actions, rewards
+        return initial_state, states, actions, rewards
 
     def _build_execution_graph(self):
         self._transition = ActionSimulationCell(self._compiler)
