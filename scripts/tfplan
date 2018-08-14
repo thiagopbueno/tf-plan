@@ -18,6 +18,7 @@
 
 import argparse
 
+import tfplan
 import tfrddlsim.viz
 
 def parse_args():
@@ -56,6 +57,18 @@ def parse_args():
         help='verbosity mode'
     )
     return parser.parse_args()
+
+
+def print_parameters(args):
+    if args.verbose:
+        print()
+        print('Running tf-plan v{} ...'.format(tfplan.__version__))
+        print('>> RDDL:            {}'.format(args.rddl))
+        print('>> Horizon:         {}'.format(args.horizon))
+        print('>> Batch size:      {}'.format(args.batch_size))
+        print('>> Training epochs: {}'.format(args.epochs))
+        print('>> Learning rate:   {}'.format(args.learning_rate))
+        print()
 
 
 def read_file(path):
@@ -108,6 +121,9 @@ if __name__ == '__main__':
 
     # parse CLI arguments
     args = parse_args()
+
+    # print planner parameters
+    print_parameters(args)
 
     # read RDDL file
     rddl = parse_rddl(args.rddl)
