@@ -53,12 +53,12 @@ class ActionEvaluator(object):
     @property
     def batch_size(self) -> int:
         '''Returns the policy's batch size.'''
-        return self._policy._batch_size
+        return self._policy.batch_size
 
     @property
     def horizon(self) -> int:
         '''Returns the policy's horizon.'''
-        return self._policy._horizon
+        return self._policy.horizon
 
     def run(self) -> SimulationOutput:
         '''Runs the trajectory simulation ops for the open-loop policy.

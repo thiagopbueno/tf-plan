@@ -55,12 +55,12 @@ class ActionOptimizer(object):
     @property
     def batch_size(self) -> int:
         '''Returns the policy's batch size.'''
-        return self._policy._batch_size
+        return self._policy.batch_size
 
     @property
     def horizon(self) -> int:
         '''Returns the policy's horizon.'''
-        return self._policy._horizon
+        return self._policy.horizon
 
     def build(self, learning_rate: float = 0.001) -> None:
         '''Builds all graph operations necessary for optimizing actions.

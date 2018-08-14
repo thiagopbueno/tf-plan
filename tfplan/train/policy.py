@@ -40,8 +40,8 @@ class OpenLoopPolicy(Policy):
 
     def __init__(self, compiler: Compiler, batch_size: int, horizon: int) -> None:
         self._compiler = compiler
-        self._batch_size = batch_size
-        self._horizon = horizon
+        self.batch_size = batch_size
+        self.horizon = horizon
 
     @property
     def graph(self):
@@ -102,7 +102,7 @@ class OpenLoopPolicy(Policy):
         Returns:
             tf.Tensor: The policy variable for the action fluent.
         '''
-        shape = [self._batch_size, self._horizon] + list(fluent_shape)
+        shape = [self.batch_size, self.horizon] + list(fluent_shape)
         name = fluent.replace('/', '-') # TODO change canonical fluent name in tfrddlsim
         if initializer is not None:
             initializer = tf.constant_initializer(initializer, dtype=tf.float32)
