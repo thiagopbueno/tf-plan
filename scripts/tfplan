@@ -92,7 +92,7 @@ def parse_rddl(path):
 
 
 def compile(rddl):
-    from tfrddlsim.compiler import Compiler
+    from tfrddlsim.rddl2tf.compiler import Compiler
     rddl2tf = Compiler(rddl, batch_mode=True)
     return rddl2tf
 

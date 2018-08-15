@@ -15,7 +15,7 @@
 
 
 from pyrddl.parser import RDDLParser
-from tfrddlsim.compiler import Compiler
+from tfrddlsim.rddl2tf.compiler import Compiler
 
 from tfplan.planners.anytime_planning import OnlinePlanning
 from tfplan.planners.open_loop_planner import OnlineOpenLoopPlanner

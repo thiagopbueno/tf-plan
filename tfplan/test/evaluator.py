@@ -16,8 +16,8 @@
 
 from tfplan.train.policy import OpenLoopPolicy
 
-from tfrddlsim.compiler import Compiler
-from tfrddlsim.simulator import Simulator
+from tfrddlsim.rddl2tf.compiler import Compiler
+from tfrddlsim.simulation.policy_simulator import PolicySimulator
 
 import numpy as np
 import tensorflow as tf
@@ -66,5 +66,5 @@ class ActionEvaluator(object):
         Returns:
             Tuple[NonFluentsArray, StatesArray, ActionsArray, IntermsArray, np.array]: Simulation ouput tuple.
         '''
-        self._simulator = Simulator(self._compiler, self._policy, self.batch_size)
+        self._simulator = PolicySimulator(self._compiler, self._policy, self.batch_size)
         return self._simulator.run(self.horizon)

@@ -16,8 +16,8 @@
 
 from tfplan.train.policy import OpenLoopPolicy
 
-from tfrddlsim.compiler import Compiler
-from tfrddlsim.simulator import Simulator
+from tfrddlsim.rddl2tf.compiler import Compiler
+from tfrddlsim.simulation.policy_simulator import PolicySimulator
 
 import sys
 import numpy as np
@@ -121,7 +121,7 @@ class ActionOptimizer(object):
         if horizon is None:
             horizon = self.horizon
 
-        simulator = Simulator(self._compiler, self._policy, self.batch_size)
+        simulator = PolicySimulator(self._compiler, self._policy, self.batch_size)
         trajectories = simulator.trajectory(horizon)
         self.initial_state = trajectories[0]
         self.states = trajectories[1]
