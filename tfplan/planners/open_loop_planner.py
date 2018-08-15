@@ -41,8 +41,8 @@ class OfflineOpenLoopPlanner(object):
         self._optimizer.build(learning_rate)
 
     def run(self, epochs, show_progress=True):
-        solution, policy_vars = self._optimizer.run(epochs, show_progress=show_progress)
-        return solution, policy_vars
+        actions, policy_vars = self._optimizer.run(epochs, show_progress=show_progress)
+        return actions, policy_vars
 
 
 class OnlineOpenLoopPlanner(object):
@@ -72,6 +72,7 @@ class OnlineOpenLoopPlanner(object):
                 self._optimizer.build(self.learning_rate, self.horizon - t)
 
         initial_state = tuple(np.stack([fluent] * self.batch_size) for fluent in state[0])
-        actions, _ = self._optimizer.run(self.epochs, initial_state, self.show_progress)
+        actions, policy_vars = self._optimizer.run(self.epochs, initial_state, self.show_progress)
         action = tuple(np.expand_dims(fluent[0], axis=0) for fluent in actions)
-        return action
+        policy_vars = tuple(np.expand_dims(var[(self.horizon-1) - t], axis=0) for var in policy_vars)
+        return action, policy_vars

@@ -16,6 +16,7 @@
 
 from tfrddlsim.simulation.transition_simulator import ActionSimulationCell
 
+import numpy as np
 import tensorflow as tf
 
 
@@ -39,32 +40,36 @@ class OnlinePlanning(object):
         with self.graph.as_default():
             self._build_execution_graph()
 
-    def run(self, initial_state, horizon, epochs=100, show_progress=True):
-        states = []
+    def run(self, horizon, show_progress=True):
         actions = []
-        rewards = []
+        policy_vars = []
+        for size, dtype in zip(self._compiler.action_size, self._compiler.action_dtype):
+            shape = [horizon] + list(size)
+            actions.append(np.zeros(shape, dtype=np.float32))
+            policy_vars.append(np.zeros(shape, dtype=np.float32))
 
         with tf.Session(graph=self.graph) as sess:
+            initial_state = self._compiler.compile_initial_state(batch_size=1)
             initial_state = sess.run(initial_state)
 
         state = initial_state
         for step in range(horizon):
 
             # plan
-            action = self._planner(state, step)
-            actions.append(action)
+            action, policy_var = self._planner(state, step)
+            for i, (fluent, var) in enumerate(zip(action, policy_var)):
+                actions[i][step] = fluent
+                policy_vars[i][step] = var
 
             # execute
             with tf.Session(graph=self.graph) as sess:
                 feed_dict = { self.state: state, self.action: action }
                 next_state, reward = sess.run([self.next_state, self.reward], feed_dict=feed_dict)
-                states.append(next_state)
-                rewards.append(reward[0])
 
             # monitor
             state = next_state
 
-        return initial_state, states, actions, rewards
+        return actions, policy_vars
 
     def _build_execution_graph(self):
         self._transition = ActionSimulationCell(self._compiler)

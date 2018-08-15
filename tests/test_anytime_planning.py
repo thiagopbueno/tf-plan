@@ -42,9 +42,9 @@ class TestOnlinePlanning(unittest.TestCase):
         cls.default_action = cls.compiler.compile_default_action(batch_size=1)
 
         cls.batch_size = 128
-        cls.horizon = 10
+        cls.horizon = 8
         planner = OnlineOpenLoopPlanner(cls.compiler, cls.batch_size, cls.horizon)
-        planner.build(epochs=10, show_progress=False)
+        planner.build(epochs=5, show_progress=False)
 
         cls.online_planner = OnlinePlanning(cls.compiler, planner)
         cls.online_planner.build()
@@ -90,33 +90,9 @@ class TestOnlinePlanning(unittest.TestCase):
         self.fail()
 
     def test_online_planning_cycle(self):
-        initial_state, states, actions, rewards = self.online_planner.run(self.initial_state, self.horizon, epochs=10, show_progress=False)
-        self.assertEqual(len(states), self.horizon)
-        self.assertEqual(len(actions), self.horizon)
-        self.assertEqual(len(rewards), self.horizon)
+        actions, policy_vars = self.online_planner.run(self.horizon, show_progress=False)
+        self.assertEqual(len(actions), len(policy_vars))
 
-        for state in states:
-            self.assertIsInstance(state, tuple)
-            self.assertEqual(len(state), len(self.initial_state))
-            self.assertTrue(all(isinstance(fluent, np.ndarray) for fluent in state))
-            for state_fluent, initial_state_fluent in zip(state, self.initial_state):
-                self.assertEqual(state_fluent.shape, initial_state_fluent.shape)
-                if initial_state_fluent.dtype == tf.float32:
-                    self.assertEqual(state_fluent.dtype, np.float32)
-                elif initial_state_fluent.dtype == tf.int32:
-                    self.assertEqual(state_fluent.dtype, np.int32)
-                elif initial_state_fluent.dtype == tf.bool:
-                    self.assertEqual(state_fluent.dtype, np.bool)
-
-        for action in actions:
-            self.assertIsInstance(action, tuple)
-            self.assertEqual(len(action), len(self.default_action))
-            self.assertTrue(all(isinstance(fluent, np.ndarray) for fluent in action))
-            for action_fluent, default_action in zip(action, self.default_action):
-                self.assertEqual(action_fluent.shape, default_action.shape)
-                if default_action.dtype == tf.float32:
-                    self.assertEqual(action_fluent.dtype, np.float32)
-                elif default_action.dtype == tf.int32:
-                    self.assertEqual(action_fluent.dtype, np.int32)
-                elif default_action.dtype == tf.bool:
-                    self.assertEqual(action_fluent.dtype, np.bool)
+        for action, var in zip(actions, policy_vars):
+            self.assertTupleEqual(action.shape, var.shape)
+            self.assertEqual(action.shape[0], self.horizon)
