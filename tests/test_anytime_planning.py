@@ -17,8 +17,8 @@
 from pyrddl.parser import RDDLParser
 from tfrddlsim.compiler import Compiler
 
-from tfplan.planners.online_plan import OnlinePlanning
-from tfplan.planners.open_loop_planner import OpenLoopPlanner
+from tfplan.planners.anytime_planning import OnlinePlanning
+from tfplan.planners.open_loop_planner import OnlineOpenLoopPlanner
 
 import numpy as np
 import tensorflow as tf
@@ -41,10 +41,11 @@ class TestOnlinePlanning(unittest.TestCase):
         cls.initial_state = cls.compiler.compile_initial_state(batch_size=1)
         cls.default_action = cls.compiler.compile_default_action(batch_size=1)
 
-        batch_size = 128
+        cls.batch_size = 128
         cls.horizon = 10
-        planner = OpenLoopPlanner(cls.compiler, batch_size, cls.horizon)
-        planner.build(learning_rate=0.05)
+        planner = OnlineOpenLoopPlanner(cls.compiler, cls.batch_size, cls.horizon)
+        planner.build(epochs=10, show_progress=False)
+
         cls.online_planner = OnlinePlanning(cls.compiler, planner)
         cls.online_planner.build()
 

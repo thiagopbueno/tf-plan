@@ -18,6 +18,7 @@ from tfplan.train.policy import OpenLoopPolicy
 from tfplan.train.optimizer import ActionOptimizer
 
 import numpy as np
+import tensorflow as tf
 
 
 class OfflineOpenLoopPlanner(object):
@@ -43,8 +44,34 @@ class OfflineOpenLoopPlanner(object):
         solution, policy_vars = self._optimizer.run(epochs, show_progress=show_progress)
         return solution, policy_vars
 
-    def __call__(self, initial_state, epochs=100, show_progress=True):
-        initial_state = tuple(np.stack([fluent] * self._policy.batch_size) for fluent in initial_state[0])
-        actions, _ = self._optimizer.run(epochs, initial_state, show_progress)
+
+class OnlineOpenLoopPlanner(object):
+
+    def __init__(self, compiler, batch_size, horizon):
+        self._compiler = compiler
+        self._policy = OpenLoopPolicy(self._compiler, batch_size, horizon)
+        self._optimizer = ActionOptimizer(self._compiler, self._policy)
+
+    @property
+    def horizon(self):
+        return self._policy.horizon
+
+    @property
+    def batch_size(self):
+        return self._policy.batch_size
+
+    def build(self, learning_rate=0.01, epochs=100, show_progress=True):
+        self.learning_rate = learning_rate
+        self.epochs = epochs
+        self.show_progress = show_progress
+        self._policy.build('planning')
+
+    def __call__(self, state, t):
+        with self._compiler.graph.as_default():
+            with tf.name_scope('timestep{}'.format(t)):
+                self._optimizer.build(self.learning_rate, self.horizon - t)
+
+        initial_state = tuple(np.stack([fluent] * self.batch_size) for fluent in state[0])
+        actions, _ = self._optimizer.run(self.epochs, initial_state, self.show_progress)
         action = tuple(np.expand_dims(fluent[0], axis=0) for fluent in actions)
         return action

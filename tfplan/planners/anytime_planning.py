@@ -49,8 +49,9 @@ class OnlinePlanning(object):
 
         state = initial_state
         for step in range(horizon):
+
             # plan
-            action = self._planner(state, epochs, show_progress)
+            action = self._planner(state, step)
             actions.append(action)
 
             # execute
