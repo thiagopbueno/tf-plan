@@ -62,7 +62,7 @@ class ActionOptimizer(object):
         '''Returns the policy's horizon.'''
         return self._policy.horizon
 
-    def build(self, learning_rate: float = 0.001) -> None:
+    def build(self, learning_rate: float = 0.001, horizon=None) -> None:
         '''Builds all graph operations necessary for optimizing actions.
 
         Args:
@@ -71,7 +71,7 @@ class ActionOptimizer(object):
         '''
         with self.graph.as_default():
             with tf.name_scope('action_optimizer'):
-                self._build_trajectory_graph(self.horizon)
+                self._build_trajectory_graph(horizon)
                 self._build_loss_graph()
                 self._build_optimization_graph(learning_rate)
                 self._build_solution_graph()
@@ -116,8 +116,11 @@ class ActionOptimizer(object):
 
             return solution, policy_variables
 
-    def _build_trajectory_graph(self, horizon: int) -> None:
+    def _build_trajectory_graph(self, horizon: int = None) -> None:
         '''Builds the (state, action, interm, reward) trajectory ops.'''
+        if horizon is None:
+            horizon = self.horizon
+
         simulator = Simulator(self._compiler, self._policy, self.batch_size)
         trajectories = simulator.trajectory(horizon)
         self.initial_state = trajectories[0]
