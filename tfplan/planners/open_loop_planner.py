@@ -20,12 +20,20 @@ from tfplan.train.optimizer import ActionOptimizer
 import numpy as np
 
 
-class OpenLoopPlanner(object):
+class OfflineOpenLoopPlanner(object):
 
     def __init__(self, compiler, batch_size, horizon):
         self._compiler = compiler
         self._policy = OpenLoopPolicy(self._compiler, batch_size, horizon)
         self._optimizer = ActionOptimizer(self._compiler, self._policy)
+
+    @property
+    def horizon(self):
+        return self._policy.horizon
+
+    @property
+    def batch_size(self):
+        return self._policy.batch_size
 
     def build(self, learning_rate=0.01):
         self._policy.build('planning')
