@@ -104,7 +104,7 @@ def optimize(rddl2tf, args):
 
 
 def offline_planning(compiler, batch_size, horizon, epochs, learning_rate):
-    from tfplan.planners.open_loop_planner import OfflineOpenLoopPlanner
+    from tfplan.planners.offline import OfflineOpenLoopPlanner
     planner = OfflineOpenLoopPlanner(compiler, batch_size, horizon)
     planner.build(learning_rate)
     actions, policy_variables = planner.run(epochs)
@@ -112,9 +112,9 @@ def offline_planning(compiler, batch_size, horizon, epochs, learning_rate):
 
 
 def online_planning(compiler, batch_size, horizon, epochs, learning_rate):
-    from tfplan.planners.anytime_planning import OnlinePlanning
-    from tfplan.planners.open_loop_planner import OnlineOpenLoopPlanner
-    open_loop_planner = OnlineOpenLoopPlanner(compiler, batch_size, horizon)
+    from tfplan.planners.environment import OnlinePlanning
+    from tfplan.planners.online import OnlineOpenLoopPlanner
+    open_loop_planner = OnlineOpenLoopPlanner(compiler, batch_size, horizon, parallel_plans=False)
     open_loop_planner.build(learning_rate, epochs)
     planner = OnlinePlanning(compiler, open_loop_planner)
     planner.build()

@@ -23,13 +23,13 @@ import sys
 import numpy as np
 import tensorflow as tf
 
-from typing import List
+from typing import List, Optional, Sequence
 
 
 class ActionOptimizer(object):
     '''ActionOptimizer implements a wrapper around RMSProp for optimizing actions.
 
-    It uses tfrddlsim package to generate trajectories for the RDDL MDP, and
+    It uses tfrddlsim package to generate trajectories for the MDP, and
     optimizes the variables of an open loop policy in order to maximize the
     total (undiscounted) reward received from start state.
 
@@ -38,7 +38,7 @@ class ActionOptimizer(object):
         "Scalable Planning with Tensorflow for Hybrid Nonlinear Domains".
 
     Args:
-        compiler (:obj:`tfrddlsim.compiler.Compiler`): A RDDL2TensorFlow compiler.
+        compiler (:obj:`tfrddlsim.rddl2tf.compiler.Compiler`): A RDDL2TensorFlow compiler.
         policy (:obj:`tfplan.train.policy.OpenLoopPolicy`): A sequence of actions
         implemented as an open loop policy.
     '''
@@ -52,33 +52,24 @@ class ActionOptimizer(object):
         '''Returns the compiler's graph.'''
         return self._compiler.graph
 
-    @property
-    def batch_size(self) -> int:
-        '''Returns the policy's batch size.'''
-        return self._policy.batch_size
-
-    @property
-    def horizon(self) -> int:
-        '''Returns the policy's horizon.'''
-        return self._policy.horizon
-
-    def build(self, learning_rate: float = 0.001, horizon=None) -> None:
+    def build(self, learning_rate: float, batch_size: int, horizon: int) -> None:
         '''Builds all graph operations necessary for optimizing actions.
 
         Args:
-            horizon (int): The number of timesteps.
             learning_rate (int): The learning rate passed to the underlying optimizer.
+            batch_size (int): The simulation batch size.
+            horizon (int): The number of timesteps in a trajectory.
         '''
         with self.graph.as_default():
             with tf.name_scope('action_optimizer'):
-                self._build_trajectory_graph(horizon)
+                self._build_trajectory_graph(horizon, batch_size)
                 self._build_loss_graph()
                 self._build_optimization_graph(learning_rate)
                 self._build_solution_graph()
 
     def run(self,
             epochs: int,
-            initial_state=None,
+            initial_state: Optional[Sequence[np.array]] = None,
             show_progress: bool = True) -> List[np.array]:
         '''Runs the optimization ops for a given number of training `epochs`.
 
@@ -116,12 +107,9 @@ class ActionOptimizer(object):
 
             return solution, policy_variables
 
-    def _build_trajectory_graph(self, horizon: int = None) -> None:
+    def _build_trajectory_graph(self, horizon: int, batch_size: int) -> None:
         '''Builds the (state, action, interm, reward) trajectory ops.'''
-        if horizon is None:
-            horizon = self.horizon
-
-        simulator = PolicySimulator(self._compiler, self._policy, self.batch_size)
+        simulator = PolicySimulator(self._compiler, self._policy, batch_size)
         trajectories = simulator.trajectory(horizon)
         self.initial_state = trajectories[0]
         self.states = trajectories[1]

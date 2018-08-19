@@ -33,6 +33,7 @@ class TestActionOptimizer(unittest.TestCase):
         cls.horizon = 40
         cls.batch_size = 64
         cls.epochs = 50
+        cls.learning_rate = 0.01
 
         # parse RDDL file
         with open('rddl/Navigation.rddl') as file:
@@ -49,7 +50,7 @@ class TestActionOptimizer(unittest.TestCase):
 
         # initialize ActionOptimizer
         cls.optimizer = ActionOptimizer(cls.rddl2tf, cls.policy)
-        cls.optimizer.build()
+        cls.optimizer.build(cls.learning_rate, cls.batch_size, cls.horizon)
 
     def test_state_trajectory(self):
         states = self.optimizer.states

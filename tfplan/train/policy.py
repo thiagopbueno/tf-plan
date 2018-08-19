@@ -33,15 +33,19 @@ class OpenLoopPolicy(Policy):
         It uses the current state only for constraining the bounds of each action fluent.
 
     Args:
-        compiler (:obj:`tfrddlsim.compiler.Compiler`): A RDDL2TensorFlow compiler.
-        batch_size (int): The batch size.
+        compiler (:obj:`tfrddlsim.rddl2tf.compiler.Compiler`): A RDDL2TensorFlow compiler.
+        batch_size (int): The simulation batch size.
         horizon(int): The number of timesteps.
     '''
 
-    def __init__(self, compiler: Compiler, batch_size: int, horizon: int) -> None:
+    def __init__(self,
+            compiler: Compiler,
+            batch_size: int, horizon: int,
+            parallel_plans: bool = True) -> None:
         self._compiler = compiler
         self.batch_size = batch_size
         self.horizon = horizon
+        self.parallel_plans = parallel_plans
 
     @property
     def graph(self):
@@ -80,12 +84,15 @@ class OpenLoopPolicy(Policy):
             Sequence[tf.Tensor]: A tuple of action fluents.
         '''
         action_fluents = self._compiler.action_fluent_ordering
+        action_size = self._compiler.action_size
         bounds = self._compiler.compile_action_bound_constraints(state)
         action = []
         with self.graph.as_default():
             t = tf.cast(timestep[0][0], tf.int32) # TODO change timestep dtype in tfrddlsim
-            for fluent, var in zip(action_fluents, self._policy_variables):
+            for fluent, size, var in zip(action_fluents, action_size, self._policy_variables):
                 tensor = self._get_action_tensor(var[:,t,:], bounds[fluent])
+                if not self.parallel_plans:
+                    tensor = tf.tile(tensor, [self.batch_size] + [1] * len(size))
                 action.append(tensor)
         return tuple(action)
 
@@ -102,7 +109,11 @@ class OpenLoopPolicy(Policy):
         Returns:
             tf.Tensor: The policy variable for the action fluent.
         '''
-        shape = [self.batch_size, self.horizon] + list(fluent_shape)
+        if self.parallel_plans:
+            shape = [self.batch_size, self.horizon] + list(fluent_shape)
+        else:
+            shape = [1, self.horizon] + list(fluent_shape)
+
         name = fluent.replace('/', '-') # TODO change canonical fluent name in tfrddlsim
         if initializer is not None:
             initializer = tf.constant_initializer(initializer, dtype=tf.float32)
