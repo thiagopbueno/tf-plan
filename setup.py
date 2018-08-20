@@ -16,7 +16,7 @@ setup(
     version=tfplan.__version__,
     author='Thiago P. Bueno',
     author_email='thiago.pbueno@gmail.com',
-    description='Planning via gradient-based optimization in continuous MDPs using TensorFlow.',
+    description='Planning through backpropagation using TensorFlow.',
     long_description=read('README.md'),
     license='GNU General Public License v3.0',
     keywords=['planning', 'tensorflow', 'rddl', 'mdp'],
