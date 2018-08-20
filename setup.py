@@ -21,7 +21,7 @@ setup(
     license='GNU General Public License v3.0',
     keywords=['planning', 'tensorflow', 'rddl', 'mdp'],
     url='https://github.com/thiagopbueno/tf-plan',
-    packages=['tfplan', 'tests'],
+    packages=find_packages(),
     scripts=['scripts/tfplan'],
     install_requires=[
         'pyrddl',
