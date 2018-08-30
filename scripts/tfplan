@@ -17,6 +17,7 @@
 
 
 import argparse
+import numpy as np
 
 import tfplan
 import tfrddlsim.viz
@@ -99,43 +100,53 @@ def compile(rddl):
 
 def optimize(rddl2tf, args):
     planning = online_planning if args.mode == 'online' else offline_planning
-    actions, policy_vars = planning(rddl2tf, args.batch_size, args.horizon, args.epochs, args.learning_rate)
-    return actions, policy_vars
+    return planning(rddl2tf, args.batch_size, args.horizon, args.epochs, args.learning_rate)
 
 
 def offline_planning(compiler, batch_size, horizon, epochs, learning_rate):
     from tfplan.planners.offline import OfflineOpenLoopPlanner
+    from tfplan.train.policy import OpenLoopPolicy
+    from tfplan.test.evaluator import ActionEvaluator
+
+    # optimize actions
     planner = OfflineOpenLoopPlanner(compiler, batch_size, horizon)
     planner.build(learning_rate)
     actions, policy_variables = planner.run(epochs)
-    return actions, policy_variables
+
+    # evaluate solution
+    plan = OpenLoopPolicy(compiler, 1, horizon)
+    plan.build('test', initializers=policy_variables)
+    evaluator = ActionEvaluator(compiler, plan)
+    trajectories = evaluator.run()
+    return trajectories
 
 
 def online_planning(compiler, batch_size, horizon, epochs, learning_rate):
     from tfplan.planners.environment import OnlinePlanning
     from tfplan.planners.online import OnlineOpenLoopPlanner
+
+    # build online planner
     open_loop_planner = OnlineOpenLoopPlanner(compiler, batch_size, horizon, parallel_plans=False)
     open_loop_planner.build(learning_rate, epochs)
+
+    # run plan-execute-monitor cycle and evaluate solution
     planner = OnlinePlanning(compiler, open_loop_planner)
     planner.build()
-    actions, policy_variables = planner.run(horizon)
-    return actions, policy_variables
-
-
-def evaluate(compiler, horizon, policy_variables):
-    from tfplan.train.policy import OpenLoopPolicy
-    from tfplan.test.evaluator import ActionEvaluator
-    policy = OpenLoopPolicy(compiler, 1, horizon)
-    policy.build('test', initializers=policy_variables)
-    evaluator = ActionEvaluator(compiler, policy)
-    trajectories = evaluator.run()
+    trajectories = planner.run(horizon)
     return trajectories
 
 
+def print_performance(trajectories):
+    print()
+    print('>> total reward = {:.6f}'.format(np.sum(trajectories[-1])))
+    print()
+
+
 def display(compiler, trajectories, visualizer_type, verbose=True):
-    visualizer = tfrddlsim.viz.visualizers.get(visualizer_type, 'generic')
-    viz = visualizer(compiler, verbose)
-    viz.render(trajectories)
+    if verbose:
+        visualizer = tfrddlsim.viz.visualizers.get(visualizer_type, 'generic')
+        viz = visualizer(compiler, verbose)
+        viz.render(trajectories)
 
 
 if __name__ == '__main__':
@@ -153,10 +164,10 @@ if __name__ == '__main__':
     rddl2tf = compile(rddl)
 
     # optimize actions
-    actions, policy_vars = optimize(rddl2tf, args)
+    trajectories = optimize(rddl2tf, args)
 
-    # evaluate solution
-    trajectories = evaluate(rddl2tf, args.horizon, policy_vars)
+    # report performance
+    print_performance(trajectories)
 
     # render visualization
-    display(rddl2tf, trajectories, args.viz)
+    display(rddl2tf, trajectories, args.viz, args.verbose)

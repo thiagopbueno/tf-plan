@@ -23,6 +23,8 @@ import tensorflow as tf
 from typing import Callable, Sequence, Tuple
 
 StateTensor = Sequence[tf.Tensor]
+
+NonFluentsArray = Sequence[np.array]
 StateArray = Sequence[np.array]
 ActionArray = Sequence[np.array]
 PolicyVarsArray = Sequence[np.array]
@@ -72,17 +74,19 @@ class OnlinePlanning(object):
         '''
 
         # initialize solution
-        actions, policy_vars = self._initialize_solution(horizon)
+        states, actions, interms, rewards = self._initialize_trajectory(horizon)
 
-        # initialize current state
-        state = self._initialize_state()
+        # initialize non fluents
+        non_fluents = self._initialize_non_fluents()
 
+        # initialize initial state
+        initial_state = self._initialize_state()
+
+        state = initial_state
         for step in range(horizon):
+
             # plan
-            action, policy_var = self._planner(state, step)
-            for i, (fluent, var) in enumerate(zip(action, policy_var)):
-                actions[i][step] = fluent
-                policy_vars[i][step] = var
+            action, _ = self._planner(state, step)
 
             # execute
             with tf.Session(graph=self.graph) as sess:
@@ -90,19 +94,34 @@ class OnlinePlanning(object):
                     self.state: state,
                     self.action: action
                 }
-                next_state, reward = sess.run([self.next_state, self.reward], feed_dict=feed_dict)
+                next_state, interm_state, reward = sess.run(
+                    [self.next_state, self.interm_state, self.reward],
+                    feed_dict=feed_dict)
 
             # monitor
+            rewards[step] = reward
+
+            for i, (fluent) in enumerate(next_state):
+                states[i][1][0][step] = fluent
+
+            for i, (fluent) in enumerate(action):
+                actions[i][1][0][step] = fluent
+
+            for i, (fluent) in enumerate(interm_state):
+                interms[i][1][0][step] = fluent
+
+            # update state
             state = next_state
 
-        return actions, policy_vars
+        return non_fluents, initial_state, states, actions, interms, rewards
 
     def _build_execution_graph(self) -> None:
         '''Builds the execution graph ops.'''
         self._transition = ActionSimulationCell(self._compiler)
         self.state = self._build_state_inputs()
         self.action = self._build_action_inputs()
-        self.reward, self.next_state = self._transition(self.action, self.state)
+        output, self.next_state = self._transition(self.action, self.state)
+        _, _, self.interm_state, self.reward = output
 
     def _build_state_inputs(self) -> Sequence[tf.Tensor]:
         '''Builds and returns the current state fluents as placeholders.'''
@@ -126,6 +145,14 @@ class OnlinePlanning(object):
             action_inputs.append(tf.placeholder(dtype, shape=shape))
         return tuple(action_inputs)
 
+    def _initialize_non_fluents(self) -> NonFluentsArray:
+        '''Returns non fluents.'''
+        with tf.Session(graph=self.graph) as sess:
+            non_fluents = tuple(nf.tensor for _, nf in self._compiler.non_fluents)
+            non_fluents = sess.run(non_fluents)
+            non_fluents = tuple(zip(self._compiler.non_fluent_ordering, non_fluents))
+            return non_fluents
+
     def _initialize_state(self) -> StateArray:
         '''Returns initial state.'''
         with tf.Session(graph=self.graph) as sess:
@@ -133,12 +160,34 @@ class OnlinePlanning(object):
             initial_state = sess.run(initial_state)
             return initial_state
 
-    def _initialize_solution(self, horizon: int) -> Tuple[ActionArray, PolicyVarsArray]:
-        '''Returns placeholder arrays for actions and policy vars.'''
-        actions = []
-        policy_vars = []
-        for size, dtype in zip(self._compiler.action_size, self._compiler.action_dtype):
-            shape = [horizon] + list(size)
-            actions.append(np.zeros(shape, dtype=np.float32))
-            policy_vars.append(np.zeros(shape, dtype=np.float32))
-        return actions, policy_vars
+    def _initialize_trajectory(self, horizon: int) -> Tuple[ActionArray, PolicyVarsArray]:
+        '''Returns placeholder arrays for states, actions, and interm-states.'''
+        states = self._initialize_placeholders(
+            horizon,
+            self._compiler.state_fluent_ordering,
+            self._compiler.state_size,
+            self._compiler.state_dtype)
+
+        actions = self._initialize_placeholders(
+            horizon,
+            self._compiler.action_fluent_ordering,
+            self._compiler.action_size,
+            self._compiler.action_dtype)
+
+        interms = self._initialize_placeholders(
+            horizon,
+            self._compiler.interm_fluent_ordering,
+            self._compiler.interm_size,
+            self._compiler.interm_dtype)
+
+        rewards = np.zeros([horizon], dtype=np.float32)
+
+        return states, actions, interms, rewards
+
+    def _initialize_placeholders(self, horizon, names, sizes, dtypes):
+        '''Returns placeholder arrays with given fluent's `names`, `sizes` and `dtypes`.'''
+        placeholder = []
+        for name, size, dtype in zip(names, sizes, dtypes):
+            shape = [1, horizon] + list(size) # [batch_size, horizon, fluent_shape]
+            placeholder.append((name, np.zeros(shape, dtype=np.float32))) # TODO: use dtype parameter
+        return placeholder

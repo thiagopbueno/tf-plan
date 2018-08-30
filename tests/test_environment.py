@@ -80,20 +80,15 @@ class TestOnlinePlanning(unittest.TestCase):
             self.assertEqual(state_fluent.dtype, initial_state_fluent.dtype)
 
         reward = self.online_planner.reward
-        self.assertIsInstance(reward, tuple)
-        self.assertEqual(len(reward), 1)
-        self.assertIsInstance(reward[0], tf.Tensor)
-        self.assertListEqual(reward[0].shape.as_list(), [1, 1])
-        self.assertEqual(reward[0].dtype, tf.float32)
+        self.assertIsInstance(reward, tf.Tensor)
+        self.assertListEqual(reward.shape.as_list(), [1, 1])
+        self.assertEqual(reward.dtype, tf.float32)
 
     @unittest.skip('not implemented')
     def test_monitoring_graph(self):
         self.fail()
 
     def test_online_planning_cycle(self):
-        actions, policy_vars = self.online_planner.run(self.horizon, show_progress=False)
-        self.assertEqual(len(actions), len(policy_vars))
-
-        for action, var in zip(actions, policy_vars):
-            self.assertTupleEqual(action.shape, var.shape)
-            self.assertEqual(action.shape[0], self.horizon)
+        trajectories = self.online_planner.run(self.horizon, show_progress=False)
+        self.assertIsInstance(trajectories, tuple)
+        self.assertEqual(len(trajectories), 6)
