@@ -52,7 +52,11 @@ class ActionOptimizer(object):
         '''Returns the compiler's graph.'''
         return self._compiler.graph
 
-    def build(self, learning_rate: float, batch_size: int, horizon: int) -> None:
+    def build(self,
+            learning_rate: float,
+            batch_size: int,
+            horizon: int,
+            parallel_plans: Optional[bool] = True) -> None:
         '''Builds all graph operations necessary for optimizing actions.
 
         Args:
@@ -65,7 +69,7 @@ class ActionOptimizer(object):
                 self._build_trajectory_graph(horizon, batch_size)
                 self._build_loss_graph()
                 self._build_optimization_graph(learning_rate)
-                self._build_solution_graph()
+                self._build_solution_graph(parallel_plans)
 
     def run(self,
             epochs: int,
@@ -127,9 +131,9 @@ class ActionOptimizer(object):
         self._optimizer = tf.train.RMSPropOptimizer(learning_rate)
         self._train_op = self._optimizer.minimize(self.loss)
 
-    def _build_solution_graph(self):
+    def _build_solution_graph(self, parallel_plans: bool) -> None:
         '''Builds ops for getting best solution and corresponding policy variables.'''
         self._best_idx = tf.argmax(self.total_reward, output_type=tf.int32)
         self._best_total_reward = self.total_reward[self._best_idx]
         self._best_solution = tuple(fluent[self._best_idx] for fluent in self.actions)
-        self._best_variables = self._policy[self._best_idx]
+        self._best_variables = self._policy[self._best_idx] if parallel_plans else self._policy[0]

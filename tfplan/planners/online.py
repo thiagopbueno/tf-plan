@@ -86,7 +86,7 @@ class OnlineOpenLoopPlanner(object):
         # initialize action optimizer
         with self._compiler.graph.as_default():
             with tf.name_scope('timestep{}'.format(t)):
-                self._optimizer.build(self.learning_rate, self.batch_size, self.horizon - t)
+                self._optimizer.build(self.learning_rate, self.batch_size, self.horizon - t, parallel_plans=False)
 
         # optimize next action
         initial_state = tuple(np.stack([fluent[0]] * self.batch_size) for fluent in state)
