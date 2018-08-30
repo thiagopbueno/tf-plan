@@ -33,7 +33,7 @@ class TestOnlinePlanning(unittest.TestCase):
         parser = RDDLParser()
         parser.build()
 
-        with open('rddl/Navigation.rddl', mode='r') as file:
+        with open('rddl/deterministic/Navigation.rddl', mode='r') as file:
             NAVIGATION = file.read()
             cls.rddl = parser.parse(NAVIGATION)
 

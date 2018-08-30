@@ -32,7 +32,7 @@ class TestOpenLoopPolicy(unittest.TestCase):
         cls.batch_size = 64
 
         # parse RDDL file
-        with open('rddl/Navigation.rddl') as file:
+        with open('rddl/deterministic/Navigation.rddl') as file:
             parser = RDDLParser()
             parser.build()
             rddl = parser.parse(file.read())

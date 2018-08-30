@@ -36,7 +36,7 @@ class TestActionOptimizer(unittest.TestCase):
         cls.learning_rate = 0.01
 
         # parse RDDL file
-        with open('rddl/Navigation.rddl') as file:
+        with open('rddl/deterministic/Navigation.rddl') as file:
             parser = RDDLParser()
             parser.build()
             rddl = parser.parse(file.read())
