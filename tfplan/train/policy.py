@@ -90,9 +90,14 @@ class OpenLoopPolicy(Policy):
         with self.graph.as_default():
             t = tf.cast(timestep[0][0], tf.int32) # TODO change timestep dtype in tfrddlsim
             for fluent, size, var in zip(action_fluents, action_size, self._policy_variables):
-                tensor = self._get_action_tensor(var[:,t,:], bounds[fluent])
-                if not self.parallel_plans:
-                    tensor = tf.tile(tensor, [self.batch_size] + [1] * len(size))
+                lower, upper = bounds[fluent]
+                lower_batch = lower.batch if lower is not None else False
+                upper_batch = upper.batch if upper is not None else False
+                bounds_batch = lower_batch or upper_batch
+                tensor = self._get_action_tensor(var[:,t,:], (lower, upper))
+                if not self.parallel_plans and not bounds_batch:
+                    multiples = [self.batch_size] + [1] * len(size)
+                    tensor = tf.tile(tensor, multiples)
                 action.append(tensor)
         return tuple(action)
 
