@@ -82,11 +82,16 @@ class OnlinePlanning(object):
         # initialize initial state
         initial_state = self._initialize_state()
 
+        building_times = []
+        optimization_times = []
+
         state = initial_state
         for step in range(horizon):
 
             # plan
-            action, _ = self._planner(state, step)
+            action, _, time1, time2 = self._planner(state, step)
+            building_times.append(time1)
+            optimization_times.append(time2)
 
             # execute
             with tf.Session(graph=self.graph) as sess:
@@ -113,7 +118,22 @@ class OnlinePlanning(object):
             # update state
             state = next_state
 
-        return non_fluents, initial_state, states, actions, interms, rewards
+        total_building_time = np.sum(building_times)
+        avg_building_time = np.mean(building_times)
+        total_optimization_time = np.sum(optimization_times)
+        avg_optimization_time = np.mean(optimization_times)
+        stddev_optimization_time = np.std(optimization_times)
+
+        print()
+        print('>> total building time = {:.6e}'.format(total_building_time))
+        print('>> avg   building time = {:.6e}'.format(avg_building_time))
+        print()
+        print('>> total  optimization time = {:.6e}'.format(total_optimization_time))
+        print('>> avg    optimization time   = {:.6e}'.format(avg_optimization_time))
+        print('>> stddev optimization time   = {:.6e}'.format(stddev_optimization_time))
+
+        trajectories = non_fluents, initial_state, states, actions, interms, rewards
+        return trajectories, total_optimization_time, avg_optimization_time, stddev_optimization_time
 
     def _build_execution_graph(self) -> None:
         '''Builds the execution graph ops.'''

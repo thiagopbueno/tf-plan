@@ -89,6 +89,6 @@ class TestOnlinePlanning(unittest.TestCase):
         self.fail()
 
     def test_online_planning_cycle(self):
-        trajectories = self.online_planner.run(self.horizon, show_progress=False)
+        trajectories, _, _, _ = self.online_planner.run(self.horizon, show_progress=False)
         self.assertIsInstance(trajectories, tuple)
         self.assertEqual(len(trajectories), 6)
