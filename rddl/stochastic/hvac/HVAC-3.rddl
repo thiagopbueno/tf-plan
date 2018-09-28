@@ -72,7 +72,7 @@ domain hvac_vav_fix{
 }
 
 
-non-fluents nf_hvac_vav_fix{
+non-fluents nf_hvac_vav_fix_3rooms {
     domain = hvac_vav_fix;
 
     objects{
@@ -97,9 +97,9 @@ non-fluents nf_hvac_vav_fix{
     };
 }
 
-instance inst_hvac_vav_fix{
+instance inst_hvac_vav_fix_3rooms {
     domain = hvac_vav_fix;
-    non-fluents = nf_hvac_vav_fix;
+    non-fluents = nf_hvac_vav_fix_3rooms;
     init-state{
         temp(r1) = 10.0;
     };
