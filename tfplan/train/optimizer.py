@@ -124,7 +124,7 @@ class ActionOptimizer(object):
         '''Builds the loss ops.'''
         self.total_reward = tf.squeeze(tf.reduce_sum(self.rewards, axis=1))
         self.avg_total_reward = tf.reduce_mean(self.total_reward)
-        self.loss = -self.avg_total_reward
+        self.loss = tf.square(self.avg_total_reward)
 
     def _build_optimization_graph(self, learning_rate: float) -> None:
         '''Builds the training ops.'''
