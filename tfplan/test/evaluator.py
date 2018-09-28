@@ -16,7 +16,7 @@
 
 from tfplan.train.policy import OpenLoopPolicy
 
-from tfrddlsim.rddl2tf.compiler import Compiler
+from rddl2tf.compiler import Compiler
 from tfrddlsim.simulation.policy_simulator import PolicySimulator
 
 import numpy as np
@@ -36,7 +36,7 @@ class ActionEvaluator(object):
     an open loop policy.
 
     Args:
-        compiler (:obj:`tfrddlsim.rddl2tf.compiler.Compiler`): A RDDL2TensorFlow compiler.
+        compiler (:obj:`rddl2tf.compiler.Compiler`): A RDDL2TensorFlow compiler.
         policy (:obj:`tfplan.train.policy.OpenLoopPolicy`): A sequence of actions
         implemented as an open loop policy.
     '''

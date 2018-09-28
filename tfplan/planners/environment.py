@@ -14,7 +14,7 @@
 # along with tf-plan. If not, see <http://www.gnu.org/licenses/>.
 
 
-from tfrddlsim.rddl2tf.compiler import Compiler
+from rddl2tf.compiler import Compiler
 from tfrddlsim.simulation.transition_simulator import ActionSimulationCell
 
 import numpy as np
@@ -40,7 +40,7 @@ class OnlinePlanning(object):
     with the next state and the transition reward.
 
     Args:
-        compiler (:obj:`tfrddlsim.rddl2tf.compiler.Compiler`): A RDDL2TensorFlow compiler.
+        compiler (:obj:`rddl2tf.compiler.Compiler`): A RDDL2TensorFlow compiler.
         planner (Callable[[StateTensor, int], Tuple[ActionArray, PolicyVarsArray]]): The online planner.
     '''
 

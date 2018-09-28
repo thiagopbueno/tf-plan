@@ -15,9 +15,9 @@
 
 import tfrddlsim
 import tfrddlsim.policy
-from tfrddlsim.rddl2tf.compiler import Compiler
+from rddl2tf.compiler import Compiler
 from tfrddlsim.policy import Policy
-from tfrddlsim.rddl2tf.fluent import TensorFluent
+from rddl2tf.fluent import TensorFluent
 
 import tensorflow as tf
 
@@ -33,7 +33,7 @@ class OpenLoopPolicy(Policy):
         It uses the current state only for constraining the bounds of each action fluent.
 
     Args:
-        compiler (:obj:`tfrddlsim.rddl2tf.compiler.Compiler`): A RDDL2TensorFlow compiler.
+        compiler (:obj:`rddl2tf.compiler.Compiler`): A RDDL2TensorFlow compiler.
         batch_size (int): The simulation batch size.
         horizon(int): The number of timesteps.
     '''

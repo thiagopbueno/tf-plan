@@ -14,7 +14,7 @@
 # along with tf-plan. If not, see <http://www.gnu.org/licenses/>.
 
 
-from tfrddlsim.rddl2tf.compiler import Compiler
+from rddl2tf.compiler import Compiler
 
 from tfplan.train.policy import OpenLoopPolicy
 from tfplan.train.optimizer import ActionOptimizer
@@ -35,7 +35,7 @@ class OnlineOpenLoopPlanner(object):
     execution).
 
     Args:
-        compiler (:obj:`tfrddlsim.rddl2tf.compiler.Compiler`): A RDDL2TensorFlow compiler.
+        compiler (:obj:`rddl2tf.compiler.Compiler`): A RDDL2TensorFlow compiler.
         batch_size (int): The size of the batch used in policy simulation.
         horizon (int): The number of timesteps.
         parallel_plans (bool): The boolean flag for optimizing parallel sequence of actions.
