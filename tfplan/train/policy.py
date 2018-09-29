@@ -137,8 +137,8 @@ class OpenLoopPolicy(Policy):
             tf.Tensor: The action fluent tensor.
         '''
         lower, upper = bounds
-        lower = lower.tensor if lower is not None else None
-        upper = upper.tensor if upper is not None else None
+        lower = lower.cast(tf.float32).tensor if lower is not None else None
+        upper = upper.cast(tf.float32).tensor if upper is not None else None
         if lower is not None and upper is not None:
             return lower + (upper - lower) * tf.sigmoid(policy_variable)
         if lower is not None and upper is None:
