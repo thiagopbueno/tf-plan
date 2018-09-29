@@ -93,7 +93,7 @@ def parse_rddl(path):
 
 
 def compile(rddl):
-    from tfrddlsim.rddl2tf.compiler import Compiler
+    from rddl2tf.compiler import Compiler
     rddl2tf = Compiler(rddl, batch_mode=True)
     return rddl2tf
 
@@ -132,7 +132,7 @@ def online_planning(compiler, batch_size, horizon, epochs, learning_rate):
     # run plan-execute-monitor cycle and evaluate solution
     planner = OnlinePlanning(compiler, open_loop_planner)
     planner.build()
-    trajectories = planner.run(horizon)
+    trajectories, total_time, avg_time, stddev_time = planner.run(horizon)
     return trajectories
 
 

@@ -14,11 +14,12 @@
 # along with tf-plan. If not, see <http://www.gnu.org/licenses/>.
 
 
-from tfrddlsim.rddl2tf.compiler import Compiler
+from rddl2tf.compiler import Compiler
 
 from tfplan.train.policy import OpenLoopPolicy
 from tfplan.train.optimizer import ActionOptimizer
 
+import time
 import numpy as np
 import tensorflow as tf
 
@@ -35,7 +36,7 @@ class OnlineOpenLoopPlanner(object):
     execution).
 
     Args:
-        compiler (:obj:`tfrddlsim.rddl2tf.compiler.Compiler`): A RDDL2TensorFlow compiler.
+        compiler (:obj:`rddl2tf.compiler.Compiler`): A RDDL2TensorFlow compiler.
         batch_size (int): The size of the batch used in policy simulation.
         horizon (int): The number of timesteps.
         parallel_plans (bool): The boolean flag for optimizing parallel sequence of actions.
@@ -83,17 +84,27 @@ class OnlineOpenLoopPlanner(object):
             policy variables optimized for the current timestep.
         '''
 
+        print()
+        print('timestep = {}'.format(t))
+
+
         # initialize action optimizer
         with self._compiler.graph.as_default():
             with tf.name_scope('timestep{}'.format(t)):
+                start = time.time()
                 self._optimizer.build(self.learning_rate, self.batch_size, self.horizon - t, parallel_plans=False)
+                end = time.time()
+                building_time = end - start
 
         # optimize next action
+        start = time.time()
         initial_state = tuple(np.stack([fluent[0]] * self.batch_size) for fluent in state)
         actions, policy_vars = self._optimizer.run(self.epochs, initial_state, self.show_progress)
 
         # outputs
         action = tuple(np.expand_dims(fluent[0], axis=0) for fluent in actions)
         policy_vars = tuple(np.expand_dims(var[(self.horizon-1) - t], axis=0) for var in policy_vars)
+        end = time.time()
+        optimization_time = end - start
 
-        return action, policy_vars
+        return action, policy_vars, building_time, optimization_time

@@ -15,7 +15,7 @@
 
 
 from pyrddl.parser import RDDLParser
-from tfrddlsim.rddl2tf.compiler import Compiler
+from rddl2tf.compiler import Compiler
 from tfplan.train.policy import OpenLoopPolicy
 from tfplan.train.optimizer import ActionOptimizer
 

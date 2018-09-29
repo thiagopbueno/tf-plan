@@ -16,7 +16,7 @@
 
 from tfplan.train.policy import OpenLoopPolicy
 
-from tfrddlsim.rddl2tf.compiler import Compiler
+from rddl2tf.compiler import Compiler
 from tfrddlsim.simulation.policy_simulator import PolicySimulator
 
 import sys
@@ -38,7 +38,7 @@ class ActionOptimizer(object):
         "Scalable Planning with Tensorflow for Hybrid Nonlinear Domains".
 
     Args:
-        compiler (:obj:`tfrddlsim.rddl2tf.compiler.Compiler`): A RDDL2TensorFlow compiler.
+        compiler (:obj:`rddl2tf.compiler.Compiler`): A RDDL2TensorFlow compiler.
         policy (:obj:`tfplan.train.policy.OpenLoopPolicy`): A sequence of actions
         implemented as an open loop policy.
     '''
@@ -124,7 +124,7 @@ class ActionOptimizer(object):
         '''Builds the loss ops.'''
         self.total_reward = tf.squeeze(tf.reduce_sum(self.rewards, axis=1))
         self.avg_total_reward = tf.reduce_mean(self.total_reward)
-        self.loss = -self.avg_total_reward
+        self.loss = tf.square(self.avg_total_reward)
 
     def _build_optimization_graph(self, learning_rate: float) -> None:
         '''Builds the training ops.'''

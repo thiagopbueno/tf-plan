@@ -15,7 +15,7 @@
 
 
 from pyrddl.parser import RDDLParser
-from tfrddlsim.rddl2tf.compiler import Compiler
+from rddl2tf.compiler import Compiler
 from tfplan.train.policy import OpenLoopPolicy
 
 import tensorflow as tf
@@ -65,7 +65,7 @@ class TestOpenLoopPolicy(unittest.TestCase):
                 'one variable per action fluent')
 
             for fluent, size, var in zip(action_fluents, action_size, policy_variables):
-                var_name = 'test/' + fluent.replace('/', '-') + ':0'
+                var_name = 'test/' + fluent.replace('/', '-') + '_1:0'
                 self.assertIn(var_name, name2variable, 'variable has fluent name')
 
                 self.assertIsInstance(var, tf.Variable,

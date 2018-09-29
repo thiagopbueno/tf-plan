@@ -61,17 +61,17 @@ non-fluents Navigation2D-Small-2Zones {
         GOAL(x) = 8.0;
         GOAL(y) = 9.0;
 
-        DECELERATION_ZONE_CENTER(z1, x) = 2.0;
-        DECELERATION_ZONE_CENTER(z1, y) = 5.0;
-        DECELERATION_ZONE_DECAY(z1) = 2.0;
+        DECELERATION_ZONE_CENTER(z1, x) = 5.0;
+        DECELERATION_ZONE_CENTER(z1, y) = 4.5;
+        DECELERATION_ZONE_DECAY(z1) = 1.15;
 
-        DECELERATION_ZONE_CENTER(z2, x) = 4.0;
+        DECELERATION_ZONE_CENTER(z2, x) = 1.5;
         DECELERATION_ZONE_CENTER(z2, y) = 3.0;
-        DECELERATION_ZONE_DECAY(z2) = 1.5;
+        DECELERATION_ZONE_DECAY(z2) = 1.2;
     };
 }
 
-instance inst1 {
+instance inst_small_2zones {
     domain = Navigation;
     non-fluents = Navigation2D-Small-2Zones;
 
