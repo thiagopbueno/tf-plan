@@ -19,13 +19,25 @@
 import argparse
 import numpy as np
 
-import tfplan
+import rddlgym
 import tfrddlsim.viz
+
+import tfplan
+from tfplan.planners.environment import OnlinePlanning
+from tfplan.planners.online import OnlineOpenLoopPlanner
+from tfplan.planners.offline import OfflineOpenLoopPlanner
+from tfplan.train.policy import OpenLoopPolicy
+from tfplan.test.evaluator import ActionEvaluator
+
 
 def parse_args():
     description = 'Planning via gradient-based optimization in TensorFlow.'
     parser = argparse.ArgumentParser(description=description)
-    parser.add_argument('rddl', type=str, help='RDDL filepath')
+    parser.add_argument(
+        'rddl',
+        type=str,
+        help='RDDL file or rddlgym domain id'
+    )
     parser.add_argument(
         '-m', '--mode',
         default='offline',
@@ -79,35 +91,18 @@ def print_parameters(args):
         print()
 
 
-def read_file(path):
-    with open(path, 'r') as f:
-        return f.read()
+def load_model(args):
+    compiler = rddlgym.make(args.rddl, mode=rddlgym.SCG)
+    compiler.batch_mode_on()
+    return compiler
 
 
-def parse_rddl(path):
-    from pyrddl.parser import RDDLParser
-    parser = RDDLParser()
-    parser.build()
-    rddl = parser.parse(read_file(path))
-    return rddl
-
-
-def compile(rddl):
-    from rddl2tf.compiler import Compiler
-    rddl2tf = Compiler(rddl, batch_mode=True)
-    return rddl2tf
-
-
-def optimize(rddl2tf, args):
+def optimize(compiler, args):
     planning = online_planning if args.mode == 'online' else offline_planning
-    return planning(rddl2tf, args.batch_size, args.horizon, args.epochs, args.learning_rate)
+    return planning(compiler, args.batch_size, args.horizon, args.epochs, args.learning_rate)
 
 
 def offline_planning(compiler, batch_size, horizon, epochs, learning_rate):
-    from tfplan.planners.offline import OfflineOpenLoopPlanner
-    from tfplan.train.policy import OpenLoopPolicy
-    from tfplan.test.evaluator import ActionEvaluator
-
     # optimize actions
     planner = OfflineOpenLoopPlanner(compiler, batch_size, horizon)
     planner.build(learning_rate)
@@ -122,9 +117,6 @@ def offline_planning(compiler, batch_size, horizon, epochs, learning_rate):
 
 
 def online_planning(compiler, batch_size, horizon, epochs, learning_rate):
-    from tfplan.planners.environment import OnlinePlanning
-    from tfplan.planners.online import OnlineOpenLoopPlanner
-
     # build online planner
     open_loop_planner = OnlineOpenLoopPlanner(compiler, batch_size, horizon, parallel_plans=False)
     open_loop_planner.build(learning_rate, epochs)
@@ -157,17 +149,14 @@ if __name__ == '__main__':
     # print planner parameters
     print_parameters(args)
 
-    # read RDDL file
-    rddl = parse_rddl(args.rddl)
-
-    # compile RDDL to TensorFlow
-    rddl2tf = compile(rddl)
+    # read and compile RDDL file
+    compiler = load_model(args)
 
     # optimize actions
-    trajectories = optimize(rddl2tf, args)
+    trajectories = optimize(compiler, args)
 
     # report performance
     print_performance(trajectories)
 
     # render visualization
-    display(rddl2tf, trajectories, args.viz, args.verbose)
+    display(compiler, trajectories, args.viz, args.verbose)

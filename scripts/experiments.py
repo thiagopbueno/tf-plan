@@ -2,24 +2,7 @@ import sys
 import numpy as np
 import tensorflow as tf
 
-
-def read_file(path):
-    with open(path, 'r') as f:
-        return f.read()
-
-
-def parse_rddl(path):
-    from pyrddl.parser import RDDLParser
-    parser = RDDLParser()
-    parser.build()
-    rddl = parser.parse(read_file(path))
-    return rddl
-
-
-def compile(rddl):
-    from rddl2tf.compiler import Compiler
-    rddl2tf = Compiler(rddl, batch_mode=True)
-    return rddl2tf
+import rddlgym
 
 
 def solve(rddl, batch_size, horizon, learning_rate, epochs):
@@ -27,14 +10,15 @@ def solve(rddl, batch_size, horizon, learning_rate, epochs):
     from tfplan.planners.online import OnlineOpenLoopPlanner
 
     # build the compiler
-    rddl2tf = compile(rddl)
+    compiler = rddlgym.make(rddl, mode=rddlgym.SCG)
+    compiler.batch_mode_on()
 
     # build online planner
-    open_loop_planner = OnlineOpenLoopPlanner(rddl2tf, batch_size, horizon, parallel_plans=False)
+    open_loop_planner = OnlineOpenLoopPlanner(compiler, batch_size, horizon, parallel_plans=False)
     open_loop_planner.build(learning_rate, epochs)
 
     # run plan-execute-monitor cycle and evaluate solution
-    planner = OnlinePlanning(rddl2tf, open_loop_planner)
+    planner = OnlinePlanning(compiler, open_loop_planner)
     planner.build()
     trajectories, total_time, avg_time, stddev_time = planner.run(horizon)
     rewards = trajectories[-1]
@@ -53,7 +37,7 @@ if __name__ == '__main__':
     rddl_file = sys.argv[1]
     output_file = sys.argv[2]
 
-    horizon = 20
+    horizon = 3
     batch_size = 256
     learning_rate = 0.1
 
@@ -67,9 +51,6 @@ if __name__ == '__main__':
     print('>> Learning rate: {}'.format(learning_rate))
     print()
 
-    # read RDDL file
-    rddl = parse_rddl(rddl_file)
-
     for ratio in ratios:
         epochs = int(ratio * total_epochs)
         print('>> EPOCHS = {}'.format(epochs))
@@ -81,7 +62,7 @@ if __name__ == '__main__':
         stddev_times = []
         for n in range(N):
             print('---> n = {}/{}'.format(n+1, N))
-            r, total_time, avg_time, stddev_time = solve(rddl, batch_size, horizon, learning_rate, epochs)
+            r, total_time, avg_time, stddev_time = solve(rddl_file, batch_size, horizon, learning_rate, epochs)
             rewards.append(r)
             total_times.append(total_time)
             avg_times.append(avg_time)
