@@ -69,7 +69,7 @@ class OpenLoopPolicy(Policy):
         self._policy_variables = tuple(self._policy_variables)
 
     def __getitem__(self, i):
-        return [var[i,:,:] for var in self._policy_variables]
+        return [var[i,...] for var in self._policy_variables]
 
     def __call__(self,
             state: Sequence[tf.Tensor],
@@ -94,7 +94,7 @@ class OpenLoopPolicy(Policy):
                 lower_batch = lower.batch if lower is not None else False
                 upper_batch = upper.batch if upper is not None else False
                 bounds_batch = lower_batch or upper_batch
-                tensor = self._get_action_tensor(var[:,t,:], (lower, upper))
+                tensor = self._get_action_tensor(var[:,t,...], (lower, upper))
                 if not self.parallel_plans and not bounds_batch:
                     multiples = [self.batch_size] + [1] * len(size)
                     tensor = tf.tile(tensor, multiples)
