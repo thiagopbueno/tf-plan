@@ -23,9 +23,10 @@ setup(
     url='https://github.com/thiagopbueno/tf-plan',
     packages=find_packages(),
     scripts=['scripts/tfplan'],
+    python_requires='>=3.5',
     install_requires=[
-        'rddlgym',
-        'tfrddlsim',
+        'rddlgym>=0.5.6',
+        'tfrddlsim>=0.6.10',
         'tensorflow',
         'tensorflow-tensorboard',
         'typing'
