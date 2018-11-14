@@ -11,8 +11,10 @@ Planning via gradient-based optimization in continuous MDPs using TensorFlow.
 
 # Quickstart
 
+**tf-plan** is a Python3.5+ package available in PyPI.
+
 ```text
-$ pip install tf-plan
+$ pip3 install tf-plan
 ```
 
 # Features

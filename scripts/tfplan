@@ -31,7 +31,9 @@ from tfplan.test.evaluator import ActionEvaluator
 
 
 def parse_args():
-    description = 'Planning via gradient-based optimization in TensorFlow.'
+    description = '''
+    tf-plan (v{}): Planning via gradient-based optimization in TensorFlow.
+    '''.format(tfplan.__version__)
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument(
         'rddl',
