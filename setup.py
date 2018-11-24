@@ -26,6 +26,7 @@ setup(
     python_requires='>=3.5',
     install_requires=[
         'rddlgym>=0.5.6',
+        'rddl2tf>=0.4.12',
         'tfrddlsim>=0.6.10',
         'tensorflow',
         'tensorflow-tensorboard',
