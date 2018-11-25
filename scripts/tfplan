@@ -115,7 +115,7 @@ def offline_planning(compiler, batch_size, horizon, epochs, learning_rate):
     plan.build('test', initializers=policy_variables)
     evaluator = ActionEvaluator(compiler, plan)
     trajectories = evaluator.run()
-    return trajectories
+    return trajectories, None
 
 
 def online_planning(compiler, batch_size, horizon, epochs, learning_rate):
@@ -126,14 +126,27 @@ def online_planning(compiler, batch_size, horizon, epochs, learning_rate):
     # run plan-execute-monitor cycle and evaluate solution
     planner = OnlinePlanning(compiler, open_loop_planner)
     planner.build()
-    trajectories, total_time, avg_time, stddev_time = planner.run(horizon)
-    return trajectories
+    trajectories, stats = planner.run(horizon)
+    return trajectories, stats
 
 
-def print_performance(trajectories):
+def report_performance(trajectories, stats):
     print()
     print('>> total reward = {:.6f}'.format(np.sum(trajectories[-1])))
     print()
+    if stats:
+        building_times, optimization_times = stats['build'], stats['optimization']
+        total_building_time = np.sum(building_times)
+        avg_building_time = np.mean(building_times)
+        total_optimization_time = np.sum(optimization_times)
+        avg_optimization_time = np.mean(optimization_times)
+        stddev_optimization_time = np.std(optimization_times)
+        print('>> total building time = {:.6e}'.format(total_building_time))
+        print('>> avg   building time = {:.6e}'.format(avg_building_time))
+        print()
+        print('>> total  optimization time = {:.6e}'.format(total_optimization_time))
+        print('>> avg    optimization time   = {:.6e}'.format(avg_optimization_time))
+        print('>> stddev optimization time   = {:.6e}'.format(stddev_optimization_time))
 
 
 def display(compiler, trajectories, visualizer_type, verbose=True):
@@ -155,10 +168,10 @@ if __name__ == '__main__':
     compiler = load_model(args)
 
     # optimize actions
-    trajectories = optimize(compiler, args)
+    trajectories, stats = optimize(compiler, args)
 
-    # report performance
-    print_performance(trajectories)
+    # report results
+    report_performance(trajectories, stats)
 
     # render visualization
     display(compiler, trajectories, args.viz, args.verbose)

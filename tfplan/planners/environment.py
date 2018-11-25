@@ -82,8 +82,7 @@ class OnlinePlanning(object):
         # initialize initial state
         initial_state = self._initialize_state()
 
-        building_times = []
-        optimization_times = []
+        building_times, optimization_times = [], []
 
         state = initial_state
         for step in range(horizon):
@@ -95,9 +94,10 @@ class OnlinePlanning(object):
 
             # execute
             with tf.Session(graph=self.graph) as sess:
+
                 feed_dict = {
                     self.state: state,
-                    self.action: action
+                    self.action: self._feed_action(action)
                 }
                 next_state, interm_state, reward = sess.run(
                     [self.next_state, self.interm_state, self.reward],
@@ -118,22 +118,13 @@ class OnlinePlanning(object):
             # update state
             state = next_state
 
-        total_building_time = np.sum(building_times)
-        avg_building_time = np.mean(building_times)
-        total_optimization_time = np.sum(optimization_times)
-        avg_optimization_time = np.mean(optimization_times)
-        stddev_optimization_time = np.std(optimization_times)
-
-        print()
-        print('>> total building time = {:.6e}'.format(total_building_time))
-        print('>> avg   building time = {:.6e}'.format(avg_building_time))
-        print()
-        print('>> total  optimization time = {:.6e}'.format(total_optimization_time))
-        print('>> avg    optimization time   = {:.6e}'.format(avg_optimization_time))
-        print('>> stddev optimization time   = {:.6e}'.format(stddev_optimization_time))
-
         trajectories = non_fluents, initial_state, states, actions, interms, rewards
-        return trajectories, total_optimization_time, avg_optimization_time, stddev_optimization_time
+
+        stats = {
+            'build': building_times,
+            'optimization': optimization_times
+        }
+        return trajectories, stats
 
     def _build_execution_graph(self) -> None:
         '''Builds the execution graph ops.'''
@@ -211,3 +202,13 @@ class OnlinePlanning(object):
             shape = [1, horizon] + list(size) # [batch_size, horizon, fluent_shape]
             placeholder.append((name, np.zeros(shape, dtype=np.float32))) # TODO: use dtype parameter
         return placeholder
+
+    def _feed_action(self, action):
+        actions = []
+        for size, a in zip(self._compiler.action_size, action):
+            if size != ():
+                a = np.expand_dims(a, axis=0)
+                actions.append(a)
+            else:
+                actions.append(a)
+        return tuple(actions)

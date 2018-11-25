@@ -14,8 +14,7 @@
 # along with tf-plan. If not, see <http://www.gnu.org/licenses/>.
 
 
-from pyrddl.parser import RDDLParser
-from rddl2tf.compiler import Compiler
+import rddlgym
 
 from tfplan.planners.environment import OnlinePlanning
 from tfplan.planners.online import OnlineOpenLoopPlanner
@@ -30,65 +29,74 @@ class TestOnlinePlanning(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        parser = RDDLParser()
-        parser.build()
+        cls.batch_size = 16
+        cls.horizon = 3
+        cls.learning_rate = 0.001
+        cls.epochs = 5
 
-        with open('rddl/deterministic/Navigation.rddl', mode='r') as file:
-            NAVIGATION = file.read()
-            cls.rddl = parser.parse(NAVIGATION)
+    def setUp(self):
+        model_ids = ['Navigation-v2', 'HVAC-3', 'Reservoir-8']
+        self.domains = { model_id: self._init_domain(model_id) for model_id in model_ids }
 
-        cls.compiler = Compiler(cls.rddl, batch_mode=True)
-        cls.initial_state = cls.compiler.compile_initial_state(batch_size=1)
-        cls.default_action = cls.compiler.compile_default_action(batch_size=1)
+    def _init_domain(self, model_id):
+        compiler = rddlgym.make(model_id, mode=rddlgym.SCG)
+        compiler.batch_mode_on()
 
-        cls.batch_size = 128
-        cls.horizon = 8
-        cls.learning_rate = 0.05
-        planner = OnlineOpenLoopPlanner(cls.compiler, cls.batch_size, cls.horizon)
-        planner.build(cls.learning_rate, epochs=5, show_progress=False)
+        initial_state = compiler.compile_initial_state(batch_size=1)
+        default_action = compiler.compile_default_action(batch_size=1)
 
-        cls.online_planner = OnlinePlanning(cls.compiler, planner)
-        cls.online_planner.build()
+        planner = OnlineOpenLoopPlanner(compiler, self.batch_size, self.horizon)
+        planner.build(self.learning_rate, epochs=self.epochs, show_progress=False)
 
-    @unittest.skip('not implemented')
-    def test_planning_graph(self):
-        self.fail()
+        online_planner = OnlinePlanning(compiler, planner)
+        online_planner.build()
+
+        return {
+            'initial_state': initial_state,
+            'default_action': default_action,
+            'online_planner': online_planner
+        }
 
     def test_execution_graph(self):
-        action = self.online_planner.action
-        self.assertIsInstance(action, tuple)
-        self.assertEqual(len(action), len(self.default_action))
-        self.assertTrue(all(isinstance(fluent, tf.Tensor) for fluent in action))
-        for action_fluent, default_action_fluent in zip(action, self.default_action):
-            self.assertEqual(action_fluent.shape, default_action_fluent.shape)
-            self.assertEqual(action_fluent.dtype, default_action_fluent.dtype)
 
-        state = self.online_planner.state
-        self.assertIsInstance(state, tuple)
-        self.assertEqual(len(state), len(self.initial_state))
-        self.assertTrue(all(isinstance(fluent, tf.Tensor) for fluent in state))
-        for state_fluent, initial_state_fluent in zip(state, self.initial_state):
-            self.assertEqual(state_fluent.shape, initial_state_fluent.shape)
-            self.assertEqual(state_fluent.dtype, initial_state_fluent.dtype)
+        for model_id, domain in self.domains.items():
 
-        next_state = self.online_planner.next_state
-        self.assertIsInstance(next_state, tuple)
-        self.assertEqual(len(next_state), len(self.initial_state))
-        self.assertTrue(all(isinstance(fluent, tf.Tensor) for fluent in next_state))
-        for state_fluent, initial_state_fluent in zip(next_state, self.initial_state):
-            self.assertEqual(state_fluent.shape, initial_state_fluent.shape)
-            self.assertEqual(state_fluent.dtype, initial_state_fluent.dtype)
+            online_planner = domain['online_planner']
+            default_action = domain['default_action']
+            initial_state = domain['initial_state']
 
-        reward = self.online_planner.reward
-        self.assertIsInstance(reward, tf.Tensor)
-        self.assertListEqual(reward.shape.as_list(), [1, 1])
-        self.assertEqual(reward.dtype, tf.float32)
+            action = online_planner.action
+            self.assertIsInstance(action, tuple)
+            self.assertEqual(len(action), len(default_action))
+            self.assertTrue(all(isinstance(fluent, tf.Tensor) for fluent in action))
+            for action_fluent, default_action_fluent in zip(action, default_action):
+                self.assertEqual(action_fluent.shape, default_action_fluent.shape)
+                self.assertEqual(action_fluent.dtype, default_action_fluent.dtype)
 
-    @unittest.skip('not implemented')
-    def test_monitoring_graph(self):
-        self.fail()
+            state = online_planner.state
+            self.assertIsInstance(state, tuple)
+            self.assertEqual(len(state), len(initial_state))
+            self.assertTrue(all(isinstance(fluent, tf.Tensor) for fluent in state))
+            for state_fluent, initial_state_fluent in zip(state, initial_state):
+                self.assertEqual(state_fluent.shape, initial_state_fluent.shape)
+                self.assertEqual(state_fluent.dtype, initial_state_fluent.dtype)
+
+            next_state = online_planner.next_state
+            self.assertIsInstance(next_state, tuple)
+            self.assertEqual(len(next_state), len(initial_state))
+            self.assertTrue(all(isinstance(fluent, tf.Tensor) for fluent in next_state))
+            for state_fluent, initial_state_fluent in zip(next_state, initial_state):
+                self.assertEqual(state_fluent.shape, initial_state_fluent.shape)
+                self.assertEqual(state_fluent.dtype, initial_state_fluent.dtype)
+
+            reward = online_planner.reward
+            self.assertIsInstance(reward, tf.Tensor)
+            self.assertListEqual(reward.shape.as_list(), [1, 1])
+            self.assertEqual(reward.dtype, tf.float32)
 
     def test_online_planning_cycle(self):
-        trajectories, _, _, _ = self.online_planner.run(self.horizon, show_progress=False)
-        self.assertIsInstance(trajectories, tuple)
-        self.assertEqual(len(trajectories), 6)
+        for model_id, domain in self.domains.items():
+            online_planner = domain['online_planner']
+            trajectories, _ = online_planner.run(self.horizon, show_progress=False)
+            self.assertIsInstance(trajectories, tuple)
+            self.assertEqual(len(trajectories), 6)

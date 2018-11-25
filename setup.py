@@ -27,7 +27,7 @@ setup(
     install_requires=[
         'rddlgym>=0.5.6',
         'rddl2tf>=0.4.12',
-        'tfrddlsim>=0.6.10',
+        'tfrddlsim>=0.6.11',
         'tensorflow',
         'tensorflow-tensorboard',
         'typing'

@@ -84,10 +84,6 @@ class OnlineOpenLoopPlanner(object):
             policy variables optimized for the current timestep.
         '''
 
-        print()
-        print('timestep = {}'.format(t))
-
-
         # initialize action optimizer
         with self._compiler.graph.as_default():
             with tf.name_scope('timestep{}'.format(t)):
@@ -98,13 +94,19 @@ class OnlineOpenLoopPlanner(object):
 
         # optimize next action
         start = time.time()
-        initial_state = tuple(np.stack([fluent[0]] * self.batch_size) for fluent in state)
+        initial_state = tuple(self._batch_tensor(fluent) for fluent in state)
         actions, policy_vars = self._optimizer.run(self.epochs, initial_state, self.show_progress)
 
         # outputs
-        action = tuple(np.expand_dims(fluent[0], axis=0) for fluent in actions)
+        action = tuple(fluent[0] for fluent in actions)
         policy_vars = tuple(np.expand_dims(var[(self.horizon-1) - t], axis=0) for var in policy_vars)
         end = time.time()
         optimization_time = end - start
 
         return action, policy_vars, building_time, optimization_time
+
+    def _batch_tensor(self, fluent):
+        tensor = np.stack([fluent[0]] * self.batch_size)
+        if len(tensor.shape) == 1:
+            tensor = np.expand_dims(tensor, -1)
+        return tensor
