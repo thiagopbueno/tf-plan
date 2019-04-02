@@ -25,9 +25,9 @@ setup(
     scripts=['scripts/tfplan'],
     python_requires='>=3.5',
     install_requires=[
-        'rddlgym==0.5.6',
-        'rddl2tf==0.4.12',
-        'tfrddlsim==0.6.11',
+        'rddlgym>=0.5.8',
+        'rddl2tf>=0.5.1',
+        'tfrddlsim>=0.7.0',
         'tensorflow',
         'tensorflow-tensorboard',
         'typing'

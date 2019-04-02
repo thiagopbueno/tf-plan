@@ -40,6 +40,7 @@ class TestActionOptimizer(unittest.TestCase):
             parser = RDDLParser()
             parser.build()
             rddl = parser.parse(file.read())
+            rddl.build()
 
         # initializer RDDL2TensorFlow compiler
         cls.rddl2tf = Compiler(rddl, batch_mode=True)
@@ -54,7 +55,7 @@ class TestActionOptimizer(unittest.TestCase):
 
     def test_state_trajectory(self):
         states = self.optimizer.states
-        state_size = self.rddl2tf.state_size
+        state_size = self.rddl2tf.rddl.state_size
         self.assertIsInstance(states, tuple, 'state trajectory is factored')
         self.assertEqual(len(states), len(state_size), 'state trajectory has all states fluents')
         for fluent, fluent_size in zip(states, state_size):
@@ -64,7 +65,7 @@ class TestActionOptimizer(unittest.TestCase):
 
     def test_action_trajectory(self):
         actions = self.optimizer.actions
-        action_size = self.rddl2tf.action_size
+        action_size = self.rddl2tf.rddl.action_size
         self.assertIsInstance(actions, tuple, 'action trajectory is factored')
         self.assertEqual(len(actions), len(action_size),
             'action trajectory has all actions fluents')
@@ -82,7 +83,7 @@ class TestActionOptimizer(unittest.TestCase):
             'reward shape is [batch_size, horizon, 1]')
 
     def test_optimization_variables(self):
-        action_size = self.rddl2tf.action_size
+        action_size = self.rddl2tf.rddl.action_size
         with self.rddl2tf.graph.as_default():
             policy_variables = tf.trainable_variables()
             self.assertEqual(len(policy_variables), len(action_size),
@@ -114,7 +115,7 @@ class TestActionOptimizer(unittest.TestCase):
         self.assertEqual(train_op.name, 'action_optimizer/RMSProp')
 
     def test_optimizer_solution(self):
-        action_size = self.rddl2tf.action_size
+        action_size = self.rddl2tf.rddl.action_size
         solution, variables = self.optimizer.run(self.epochs, show_progress=False)
         self.assertIsInstance(solution, tuple)
         self.assertEqual(len(solution), len(action_size))

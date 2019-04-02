@@ -37,12 +37,13 @@ Please refer to the projects' documentation for further details.
 
 ```text
 $ tfplan --help
+
 usage: tfplan [-h] [-m {offline,online}] [-b BATCH_SIZE] [-hr HORIZON]
               [-e EPOCHS] [-lr LEARNING_RATE] [--viz {generic,navigation}]
               [-v]
               rddl
 
-Planning via gradient-based optimization in TensorFlow.
+tf-plan (v0.5.0): Planning via gradient-based optimization in TensorFlow.
 
 positional arguments:
   rddl                  RDDL file or rddlgym domain id
@@ -62,7 +63,6 @@ optional arguments:
   --viz {generic,navigation}
                         type of visualizer (default=generic)
   -v, --verbose         verbosity mode
-
 ```
 
 ## Examples
@@ -72,7 +72,7 @@ optional arguments:
 ```text
 $ tfplan Navigation-v1 -b 32 -hr 15 -e 1000 -v --viz=navigation
 
-Running tf-plan v0.4.2 ...
+Running tf-plan v0.5.0 ...
 >> RDDL:            Navigation-v1
 >> Planning mode:   offline
 >> Horizon:         15
@@ -106,7 +106,7 @@ If you are having issues with tf-plan, please let me know at: [thiago.pbueno@gma
 
 # License
 
-Copyright (c) 2018 Thiago Pereira Bueno All Rights Reserved.
+Copyright (c) 2018-2019 Thiago Pereira Bueno All Rights Reserved.
 
 tf-plan is free software: you can redistribute it and/or modify it
 under the terms of the GNU Lesser General Public License as published by

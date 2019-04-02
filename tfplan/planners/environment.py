@@ -14,6 +14,7 @@
 # along with tf-plan. If not, see <http://www.gnu.org/licenses/>.
 
 
+import rddl2tf
 from rddl2tf.compiler import Compiler
 from tfrddlsim.simulation.transition_simulator import ActionSimulationCell
 
@@ -136,9 +137,9 @@ class OnlinePlanning(object):
 
     def _build_state_inputs(self) -> Sequence[tf.Tensor]:
         '''Builds and returns the current state fluents as placeholders.'''
-        fluents = self._compiler.state_fluent_ordering
-        sizes = self._compiler.state_size
-        dtypes = self._compiler.state_dtype
+        fluents = self._compiler.rddl.domain.state_fluent_ordering
+        sizes = self._compiler.rddl.state_size
+        dtypes = map(rddl2tf.utils.range_type_to_dtype, self._compiler.rddl.state_range_type)
         state_inputs = []
         for fluent, size, dtype in zip(fluents, sizes, dtypes):
             shape = [1, *size]
@@ -147,9 +148,9 @@ class OnlinePlanning(object):
 
     def _build_action_inputs(self) -> Sequence[tf.Tensor]:
         '''Builds and returns the action fluents as placeholders.'''
-        fluents = self._compiler.action_fluent_ordering
-        sizes = self._compiler.action_size
-        dtypes = self._compiler.action_dtype
+        fluents = self._compiler.rddl.domain.action_fluent_ordering
+        sizes = self._compiler.rddl.action_size
+        dtypes = map(rddl2tf.utils.range_type_to_dtype, self._compiler.rddl.action_range_type)
         action_inputs = []
         for fluent, size, dtype in zip(fluents, sizes, dtypes):
             shape = [1, *size]
@@ -161,7 +162,7 @@ class OnlinePlanning(object):
         with tf.Session(graph=self.graph) as sess:
             non_fluents = tuple(nf.tensor for _, nf in self._compiler.non_fluents)
             non_fluents = sess.run(non_fluents)
-            non_fluents = tuple(zip(self._compiler.non_fluent_ordering, non_fluents))
+            non_fluents = tuple(zip(self._compiler.rddl.domain.non_fluent_ordering, non_fluents))
             return non_fluents
 
     def _initialize_state(self) -> StateArray:
@@ -175,21 +176,21 @@ class OnlinePlanning(object):
         '''Returns placeholder arrays for states, actions, and interm-states.'''
         states = self._initialize_placeholders(
             horizon,
-            self._compiler.state_fluent_ordering,
-            self._compiler.state_size,
-            self._compiler.state_dtype)
+            self._compiler.rddl.domain.state_fluent_ordering,
+            self._compiler.rddl.state_size,
+            map(rddl2tf.utils.range_type_to_dtype, self._compiler.rddl.state_range_type))
 
         actions = self._initialize_placeholders(
             horizon,
-            self._compiler.action_fluent_ordering,
-            self._compiler.action_size,
-            self._compiler.action_dtype)
+            self._compiler.rddl.domain.action_fluent_ordering,
+            self._compiler.rddl.action_size,
+            map(rddl2tf.utils.range_type_to_dtype, self._compiler.rddl.action_range_type))
 
         interms = self._initialize_placeholders(
             horizon,
-            self._compiler.interm_fluent_ordering,
-            self._compiler.interm_size,
-            self._compiler.interm_dtype)
+            self._compiler.rddl.domain.interm_fluent_ordering,
+            self._compiler.rddl.interm_size,
+            map(rddl2tf.utils.range_type_to_dtype, self._compiler.rddl.interm_range_type))
 
         rewards = np.zeros([horizon], dtype=np.float32)
 
@@ -205,7 +206,7 @@ class OnlinePlanning(object):
 
     def _feed_action(self, action):
         actions = []
-        for size, a in zip(self._compiler.action_size, action):
+        for size, a in zip(self._compiler.rddl.action_size, action):
             if size != ():
                 a = np.expand_dims(a, axis=0)
                 actions.append(a)

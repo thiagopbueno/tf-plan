@@ -38,6 +38,7 @@ class TestActionEvaluator(unittest.TestCase):
             parser = RDDLParser()
             parser.build()
             rddl = parser.parse(file.read())
+            rddl.build()
 
         # initializer RDDL2TensorFlow compiler
         cls.rddl2tf = Compiler(rddl, batch_mode=True)
@@ -48,7 +49,7 @@ class TestActionEvaluator(unittest.TestCase):
 
         # sample policy variables to initialize open-loop policy
         cls.policy_variables = []
-        for shape in cls.rddl2tf.action_size:
+        for shape in cls.rddl2tf.rddl.action_size:
             size = [cls.horizon] + list(shape)
             cls.policy_variables.append(np.random.uniform(low=-1.0, high=1.0, size=size))
 

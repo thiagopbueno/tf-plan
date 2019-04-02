@@ -58,8 +58,8 @@ class OpenLoopPolicy(Policy):
 
     def _build_policy_variables(self, initializers=None) -> None:
         '''Builds the policy variables for each action fluent.'''
-        action_fluents = self._compiler.action_fluent_ordering
-        action_size = self._compiler.action_size
+        action_fluents = self._compiler.rddl.domain.action_fluent_ordering
+        action_size = self._compiler.rddl.action_size
         if initializers is None:
             initializers = [None] * len(action_fluents)
         self._policy_variables = []
@@ -83,8 +83,8 @@ class OpenLoopPolicy(Policy):
         Returns:
             Sequence[tf.Tensor]: A tuple of action fluents.
         '''
-        action_fluents = self._compiler.action_fluent_ordering
-        action_size = self._compiler.action_size
+        action_fluents = self._compiler.rddl.domain.action_fluent_ordering
+        action_size = self._compiler.rddl.action_size
         bounds = self._compiler.compile_action_bound_constraints(state)
         action = []
         with self.graph.as_default():

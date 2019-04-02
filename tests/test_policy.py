@@ -36,6 +36,7 @@ class TestOpenLoopPolicy(unittest.TestCase):
             parser = RDDLParser()
             parser.build()
             rddl = parser.parse(file.read())
+            rddl.build()
 
         # initializer RDDL2TensorFlow compiler
         cls.rddl2tf = Compiler(rddl, batch_mode=True)
@@ -54,8 +55,8 @@ class TestOpenLoopPolicy(unittest.TestCase):
                 cls.actions.append(action)
 
     def test_policy_variables(self):
-        action_fluents = self.rddl2tf.action_fluent_ordering
-        action_size = self.rddl2tf.action_size
+        action_fluents = self.rddl2tf.rddl.domain.action_fluent_ordering
+        action_size = self.rddl2tf.rddl.action_size
 
         with self.rddl2tf.graph.as_default():
             policy_variables = tf.trainable_variables()
@@ -65,7 +66,7 @@ class TestOpenLoopPolicy(unittest.TestCase):
                 'one variable per action fluent')
 
             for fluent, size, var in zip(action_fluents, action_size, policy_variables):
-                var_name = 'test/' + fluent.replace('/', '-') + '_1:0'
+                var_name = 'test/' + fluent.replace('/', '-') + ':0'
                 self.assertIn(var_name, name2variable, 'variable has fluent name')
 
                 self.assertIsInstance(var, tf.Variable,
@@ -76,8 +77,8 @@ class TestOpenLoopPolicy(unittest.TestCase):
                     'policy variable has shape (batch_size, horizon, action_fluent_shape')
 
     def test_policy_actions(self):
-        action_fluents = self.rddl2tf.action_fluent_ordering
-        action_size = self.rddl2tf.action_size
+        action_fluents = self.rddl2tf.rddl.domain.action_fluent_ordering
+        action_size = self.rddl2tf.rddl.action_size
 
         for action in self.actions:
             self.assertIsInstance(action, tuple, 'action is factored')
