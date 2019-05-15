@@ -17,6 +17,7 @@
 
 
 import argparse
+import json
 import numpy as np
 
 import rddlgym
@@ -67,17 +68,28 @@ def parse_args():
         help='optimizer learning rate (default=0.001)'
     )
     parser.add_argument(
-        '--viz',
+        '-viz', '--visualizer',
         default='generic',
         choices=tuple(tfrddlsim.viz.visualizers),
         help='type of visualizer (default=generic)'
+    )
+    parser.add_argument(
+        '-c', '--config',
+        type=json_config,
+        help='path to config file in JSON format'
     )
     parser.add_argument(
         '-v', '--verbose',
         action='store_true',
         help='verbosity mode'
     )
-    return parser.parse_args()
+
+    args = parser.parse_args()
+    if args.config:
+        for arg, value  in args.config.items():
+            setattr(args, arg, value)
+
+    return args
 
 
 def print_parameters(args):
@@ -91,6 +103,12 @@ def print_parameters(args):
         print('>> Training epochs: {}'.format(args.epochs))
         print('>> Learning rate:   {}'.format(args.learning_rate))
         print()
+
+
+def json_config(filepath):
+    with open(filepath, 'r') as file:
+        config = json.loads(file.read())
+        return config
 
 
 def load_model(args):
@@ -174,4 +192,4 @@ if __name__ == '__main__':
     report_performance(trajectories, stats)
 
     # render visualization
-    display(compiler, trajectories, args.viz, args.verbose)
+    display(compiler, trajectories, args.visualizer, args.verbose)
