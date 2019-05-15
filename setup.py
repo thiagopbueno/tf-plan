@@ -18,6 +18,7 @@ setup(
     author_email='thiago.pbueno@gmail.com',
     description='Planning through backpropagation using TensorFlow.',
     long_description=read('README.md'),
+    long_description_content_type='text/markdown',
     license='GNU General Public License v3.0',
     keywords=['planning', 'tensorflow', 'rddl', 'mdp'],
     url='https://github.com/thiagopbueno/tf-plan',

@@ -1,0 +1,6 @@
+{
+	"mode": "offline",
+	"batch_size": 32,
+	"horizon": 15,
+	"learning_rate": 0.01
+}
