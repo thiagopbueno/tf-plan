@@ -15,9 +15,9 @@
 
 import tfrddlsim
 import tfrddlsim.policy
-from rddl2tf.compiler import Compiler
+from rddl2tf import Compiler
 from tfrddlsim.policy import Policy
-from rddl2tf.fluent import TensorFluent
+from rddl2tf.core.fluent import TensorFluent
 
 import tensorflow as tf
 
@@ -40,16 +40,19 @@ class OpenLoopPolicy(Policy):
 
     def __init__(self,
             compiler: Compiler,
-            batch_size: int, horizon: int,
+            horizon: int,
             parallel_plans: bool = True) -> None:
         self._compiler = compiler
-        self.batch_size = batch_size
         self.horizon = horizon
         self.parallel_plans = parallel_plans
 
     @property
     def graph(self):
         return self._compiler.graph
+
+    @property
+    def batch_size(self):
+        return self._compiler.batch_size
 
     def build(self, scope: str, initializers=None) -> None:
         with self.graph.as_default():
@@ -85,7 +88,7 @@ class OpenLoopPolicy(Policy):
         '''
         action_fluents = self._compiler.rddl.domain.action_fluent_ordering
         action_size = self._compiler.rddl.action_size
-        bounds = self._compiler.compile_action_bound_constraints(state)
+        bounds = self._compiler.action_bound_constraints(state)
         action = []
         with self.graph.as_default():
             t = tf.cast(timestep[0][0], tf.int32) # TODO change timestep dtype in tfrddlsim

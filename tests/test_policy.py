@@ -15,7 +15,7 @@
 
 
 from pyrddl.parser import RDDLParser
-from rddl2tf.compiler import Compiler
+from rddl2tf import Compiler
 from tfplan.train.policy import OpenLoopPolicy
 
 import tensorflow as tf
