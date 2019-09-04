@@ -14,14 +14,15 @@
 # along with tf-plan. If not, see <http://www.gnu.org/licenses/>.
 
 
-from pyrddl.parser import RDDLParser
-from rddl2tf.compiler import Compiler
-from tfplan.train.policy import OpenLoopPolicy
-from tfplan.train.optimizer import ActionOptimizer
-
 import numpy as np
 import tensorflow as tf
 import unittest
+
+from pyrddl.parser import RDDLParser
+from rddl2tf import DefaultCompiler
+
+from tfplan.train.policy import OpenLoopPolicy
+from tfplan.train.optimizer import ActionOptimizer
 
 
 class TestActionOptimizer(unittest.TestCase):
@@ -43,19 +44,20 @@ class TestActionOptimizer(unittest.TestCase):
             rddl.build()
 
         # initializer RDDL2TensorFlow compiler
-        cls.rddl2tf = Compiler(rddl, batch_mode=True)
+        cls.compiler = DefaultCompiler(rddl, cls.batch_size)
+        cls.compiler.init()
 
         # initialize open-loop policy
-        cls.policy = OpenLoopPolicy(cls.rddl2tf, cls.batch_size, cls.horizon)
+        cls.policy = OpenLoopPolicy(cls.compiler, cls.horizon)
         cls.policy.build('test')
 
         # initialize ActionOptimizer
-        cls.optimizer = ActionOptimizer(cls.rddl2tf, cls.policy)
+        cls.optimizer = ActionOptimizer(cls.compiler, cls.policy)
         cls.optimizer.build(cls.learning_rate, cls.batch_size, cls.horizon)
 
     def test_state_trajectory(self):
         states = self.optimizer.states
-        state_size = self.rddl2tf.rddl.state_size
+        state_size = self.compiler.rddl.state_size
         self.assertIsInstance(states, tuple, 'state trajectory is factored')
         self.assertEqual(len(states), len(state_size), 'state trajectory has all states fluents')
         for fluent, fluent_size in zip(states, state_size):
@@ -65,7 +67,7 @@ class TestActionOptimizer(unittest.TestCase):
 
     def test_action_trajectory(self):
         actions = self.optimizer.actions
-        action_size = self.rddl2tf.rddl.action_size
+        action_size = self.compiler.rddl.action_size
         self.assertIsInstance(actions, tuple, 'action trajectory is factored')
         self.assertEqual(len(actions), len(action_size),
             'action trajectory has all actions fluents')
@@ -83,8 +85,8 @@ class TestActionOptimizer(unittest.TestCase):
             'reward shape is [batch_size, horizon, 1]')
 
     def test_optimization_variables(self):
-        action_size = self.rddl2tf.rddl.action_size
-        with self.rddl2tf.graph.as_default():
+        action_size = self.compiler.rddl.action_size
+        with self.compiler.graph.as_default():
             policy_variables = tf.trainable_variables()
             self.assertEqual(len(policy_variables), len(action_size),
                 'one variable per action fluent per timestep')
@@ -115,7 +117,7 @@ class TestActionOptimizer(unittest.TestCase):
         self.assertEqual(train_op.name, 'action_optimizer/RMSProp')
 
     def test_optimizer_solution(self):
-        action_size = self.rddl2tf.rddl.action_size
+        action_size = self.compiler.rddl.action_size
         solution, variables = self.optimizer.run(self.epochs, show_progress=False)
         self.assertIsInstance(solution, tuple)
         self.assertEqual(len(solution), len(action_size))
