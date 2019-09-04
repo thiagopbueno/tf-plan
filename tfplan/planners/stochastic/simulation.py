@@ -16,7 +16,7 @@
 
 import collections
 import tensorflow as tf
-from typing import Dict, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, Optional, Sequence, Tuple, Union
 
 from rddl2tf import ReparameterizationCompiler
 from rddl2tf.core.fluent import TensorFluent
@@ -33,6 +33,7 @@ StateTensor = Sequence[tf.Tensor]
 StatesTensor = Sequence[tf.Tensor]
 ActionsTensor = Sequence[tf.Tensor]
 IntermsTensor = Sequence[tf.Tensor]
+RewardTensor = tf.Tensor
 
 CellOutput = Tuple[StatesTensor, ActionsTensor, IntermsTensor, tf.Tensor]
 CellState = Sequence[tf.Tensor]
@@ -118,7 +119,7 @@ class Simulator(object):
     def __init__(self,
             compiler: ReparameterizationCompiler,
             policy: OpenLoopPolicy,
-            config: Dict) -> None:
+            config: Dict[str, Any]) -> None:
         self.compiler = compiler
         self.policy = policy
         self.config = config
@@ -149,7 +150,7 @@ class Simulator(object):
 
         self.cell = SimulationCell(self.compiler, self.policy, config={'encoding': encoding})
 
-    def trajectory(self, initial_state):
+    def trajectory(self, initial_state: StateTensor) -> Tuple[Trajectory, StateTensor, RewardTensor]:
         with self.graph.as_default():
 
             with tf.name_scope('inputs'):
