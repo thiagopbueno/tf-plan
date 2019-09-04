@@ -14,15 +14,15 @@
 # along with tf-plan. If not, see <http://www.gnu.org/licenses/>.
 
 
+import numpy as np
+import tensorflow as tf
+import unittest
+
 import rddlgym
+from rddl2tf import DefaultCompiler
 
 from tfplan.planners.environment import OnlinePlanning
 from tfplan.planners.online import OnlineOpenLoopPlanner
-
-import numpy as np
-import tensorflow as tf
-
-import unittest
 
 
 class TestOnlinePlanning(unittest.TestCase):
@@ -39,11 +39,13 @@ class TestOnlinePlanning(unittest.TestCase):
         self.domains = { model_id: self._init_domain(model_id) for model_id in model_ids }
 
     def _init_domain(self, model_id):
-        compiler = rddlgym.make(model_id, mode=rddlgym.SCG)
-        compiler.batch_mode_on()
+        rddl = rddlgym.make(model_id, mode=rddlgym.AST)
 
-        initial_state = compiler.compile_initial_state(batch_size=1)
-        default_action = compiler.compile_default_action(batch_size=1)
+        compiler = DefaultCompiler(rddl, self.batch_size)
+        compiler.init()
+
+        initial_state = compiler.initial_state()
+        default_action = compiler.default_action()
 
         planner = OnlineOpenLoopPlanner(compiler, self.batch_size, self.horizon)
         planner.build(self.learning_rate, epochs=self.epochs, show_progress=False)

@@ -13,7 +13,7 @@
 # You should have received a copy of the GNU General Public License
 # along with tf-plan. If not, see <http://www.gnu.org/licenses/>.
 
-from rddl2tf.compiler import Compiler
+from rddl2tf import Compiler
 
 from tfplan.train.policy import OpenLoopPolicy
 from tfplan.train.optimizer import ActionOptimizer
@@ -53,7 +53,7 @@ class OfflineOpenLoopPlanner(object):
 
     def _build_policy_graph(self) -> None:
         '''Builds the open loop policy ops.'''
-        self._policy = OpenLoopPolicy(self._compiler, self.batch_size, self.horizon)
+        self._policy = OpenLoopPolicy(self._compiler, self.horizon)
         self._policy.build('planning')
 
     def _build_optimizer_graph(self, learning_rate: int) -> None:
