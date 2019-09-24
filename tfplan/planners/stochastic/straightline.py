@@ -89,7 +89,7 @@ class StraightLinePlanner(Planner):
             self.loss = tf.square(self.avg_total_reward)
 
     def _build_optimization_ops(self):
-        self.optimizer = ActionOptimizer(self.compiler, self.config["optimization"])
+        self.optimizer = ActionOptimizer(self.config["optimization"])
         self.optimizer.build()
         self.train_op = self.optimizer.minimize(self.loss)
 
