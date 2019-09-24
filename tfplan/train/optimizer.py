@@ -13,40 +13,44 @@
 # You should have received a copy of the GNU General Public License
 # along with tf-plan. If not, see <http://www.gnu.org/licenses/>.
 
+# pylint: disable=missing-docstring
 
-import numpy as np
+
 import tensorflow as tf
-from typing import Any, Dict, Optional
-
-from rddl2tf import Compiler
 
 
-optimizers = {
-    'Adadelta': tf.train.AdadeltaOptimizer,
-    'Adagrad': tf.train.AdagradOptimizer,
-    'Adam': tf.train.AdamOptimizer,
-    'GradientDescent': tf.train.GradientDescentOptimizer,
-    'ProximalGradientDescent': tf.train.ProximalGradientDescentOptimizer,
-    'ProximalAdagrad': tf.train.ProximalAdagradOptimizer,
-    'RMSProp': tf.train.RMSPropOptimizer
+OPTIMIZERS = {
+    "Adadelta": tf.train.AdadeltaOptimizer,
+    "Adagrad": tf.train.AdagradOptimizer,
+    "Adam": tf.train.AdamOptimizer,
+    "GradientDescent": tf.train.GradientDescentOptimizer,
+    "ProximalGradientDescent": tf.train.ProximalGradientDescentOptimizer,
+    "ProximalAdagrad": tf.train.ProximalAdagradOptimizer,
+    "RMSProp": tf.train.RMSPropOptimizer,
 }
 
 
-DEFAULT_CONFIG = {
-    'optimizer': 'RMSProp',
-    'learning_rate': 0.001,
-}
+DEFAULT_CONFIG = {"optimizer": "RMSProp", "learning_rate": 0.001}
 
-class ActionOptimizer(object):
 
-    def __init__(self, compiler: Compiler, config: Dict[str, Any]) -> None:
-        self.compiler = compiler
-        self.config = { **DEFAULT_CONFIG, **config }
+class ActionOptimizer:
+    """ActionOptimizer wraps a TensorFlow optimizer.
+
+    Args:
+        config (Dict[str, Any]): The optimizer config dict.
+    """
+
+    def __init__(self, config):
+        self.config = config
+
+        self.optimizer = None
 
     def build(self):
-        tf_optimizer = optimizers[config['optimizer']]
-        learning_rate = config['learning_rate']
+        """Builds the underlying optimizer."""
+        tf_optimizer = OPTIMIZERS[self.config["optimizer"]]
+        learning_rate = self.config["learning_rate"]
         self.optimizer = tf_optimizer(learning_rate)
 
-    def minimize(self, loss: tf.Tensor, name: Optional[str] = None) -> tf.Tensor:
+    def minimize(self, loss, name):
+        """Returns the train op corresponding to the loss minimization."""
         return self.optimizer.minimize(loss, name)
