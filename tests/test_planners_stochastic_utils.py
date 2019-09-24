@@ -13,24 +13,26 @@
 # You should have received a copy of the GNU General Public License
 # along with tf-plan. If not, see <http://www.gnu.org/licenses/>.
 
+# pylint: disable=missing-docstring,too-many-instance-attributes
+
+
+import unittest
 
 import numpy as np
 import tensorflow as tf
-import unittest
 
 import rddlgym
-from rddl2tf import ReparameterizationCompiler
+from rddl2tf.compilers.modes.reparameterization import ReparameterizationCompiler
 
 from tfplan.planners.stochastic import utils
 
 
 class TestPlannersStochasticUtils(unittest.TestCase):
-
     def setUp(self):
         self.batch_size = 64
         self.horizon = 16
 
-        self.rddl = rddlgym.make('Navigation-v2', mode=rddlgym.AST)
+        self.rddl = rddlgym.make("Navigation-v2", mode=rddlgym.AST)
 
         self.compiler = ReparameterizationCompiler(self.rddl, self.batch_size)
         self.compiler.init()
@@ -39,11 +41,16 @@ class TestPlannersStochasticUtils(unittest.TestCase):
             self.reparameterization_map = self.compiler.get_cpfs_reparameterization()
 
             self.samples = utils.get_noise_samples(
-                self.reparameterization_map, self.batch_size, self.horizon)
+                self.reparameterization_map, self.batch_size, self.horizon
+            )
 
-            self.inputs, self.encoding = utils.encode_noise_samples_as_inputs(self.samples)
+            self.inputs, self.encoding = utils.encode_noise_samples_as_inputs(
+                self.samples
+            )
 
-            self.decoded_samples = utils.decode_inputs_as_noise_samples(self.inputs[:,0,...], self.encoding)
+            self.decoded_samples = utils.decode_inputs_as_noise_samples(
+                self.inputs[:, 0, ...], self.encoding
+            )
 
     def test_get_noise_samples(self):
         self.assertEqual(len(self.reparameterization_map), len(self.samples))
@@ -52,9 +59,11 @@ class TestPlannersStochasticUtils(unittest.TestCase):
             self.assertEqual(noise[0], sample[0])
             self.assertEqual(len(noise[1]), len(sample[1]))
 
-            for (dist, shape), xi in zip(noise[1], sample[1]):
-                self.assertIsInstance(xi, tf.Tensor)
-                self.assertListEqual(list(xi.shape), [self.batch_size, self.horizon] + shape)
+            for (_, shape), xi_noise in zip(noise[1], sample[1]):
+                self.assertIsInstance(xi_noise, tf.Tensor)
+                self.assertListEqual(
+                    list(xi_noise.shape), [self.batch_size, self.horizon] + shape
+                )
 
     def test_encode_noise_samples_as_inputs(self):
         samples_dict = dict(self.samples)
@@ -78,10 +87,12 @@ class TestPlannersStochasticUtils(unittest.TestCase):
                 self.assertEqual(end, i + (end - start))
                 self.assertEqual(end, np.prod(slice_shape) - 1)
 
-                i += (end - start + 1)
+                i += end - start + 1
 
         self.assertIsInstance(self.inputs, tf.Tensor)
-        self.assertListEqual(self.inputs.shape.as_list(), [self.batch_size, self.horizon, i])
+        self.assertListEqual(
+            self.inputs.shape.as_list(), [self.batch_size, self.horizon, i]
+        )
 
     def test_decode_inputs_as_noise_samples(self):
         decoded_samples_dict = dict(self.decoded_samples)
@@ -97,9 +108,11 @@ class TestPlannersStochasticUtils(unittest.TestCase):
             self.assertEqual(len(decoded_sample_lst), len(sample_lst))
 
             for decoded_sample, sample in zip(decoded_sample_lst, sample_lst):
-                sample = sample[:,0,...]
+                sample = sample[:, 0, ...]
                 self.assertEqual(decoded_sample.dtype, sample.dtype)
-                self.assertListEqual(decoded_sample.shape.as_list(), sample.shape.as_list())
+                self.assertListEqual(
+                    decoded_sample.shape.as_list(), sample.shape.as_list()
+                )
 
     def test_evaluate_noise_samples_as_inputs(self):
         with tf.Session(graph=self.compiler.graph) as sess:
