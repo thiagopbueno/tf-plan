@@ -13,36 +13,41 @@
 # You should have received a copy of the GNU General Public License
 # along with tf-plan. If not, see <http://www.gnu.org/licenses/>.
 
+# pylint: disable=missing-docstring
+
 
 import abc
-import numpy as np
-from typing import Any, Dict, Sequence
-
-from rddl2tf import Compiler
-
-
-Action = Sequence[np.array]
-StateTensor = Sequence[tf.Tensor]
 
 
 class Planner(metaclass=abc.ABCMeta):
+    """Planner abstract base class.
 
-    def __init__(self, compiler: Compiler, config: Dict[str, Any]) -> None:
+    Args:
+        compiler (rddl2tf.Compiler): The RDDL-to-TensorFlow compiler.
+        config (Dict[str, Any]): A config dict.
+    """
+
+    def __init__(self, compiler, config):
         self.compiler = compiler
         self.config = config
 
+        self.compiler.init()
+
     @property
     def graph(self):
+        """Returns the compiler's graph."""
         return self.compiler.graph
 
     @property
     def batch_size(self):
+        """Returns the compiler's batch size."""
         return self.compiler.batch_size
 
     @abc.abstractmethod
-    def build(self, horizon: int) -> None:
+    def build(self, horizon):
+        """Builds the planner."""
         raise NotImplementedError
 
     @abc.abstractmethod
-    def __call__(self, state: StateTensor, t: int) -> Action:
+    def __call__(self, state, timestep):
         raise NotImplementedError
