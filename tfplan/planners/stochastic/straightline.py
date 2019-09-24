@@ -13,35 +13,53 @@
 # You should have received a copy of the GNU General Public License
 # along with tf-plan. If not, see <http://www.gnu.org/licenses/>.
 
+# pylint: disable=missing-docstring
 
-import abc
+
+from collections import OrderedDict
 import numpy as np
-from typing import Any, Dict, Sequence
+import tensorflow as tf
 
-from rddl2tf import Compiler
+from rddl2tf.compilers import ReparameterizationCompiler
 
 from tfplan.planners.planner import Planner
 from tfplan.train.policy import OpenLoopPolicy
 from tfplan.planners.stochastic.simulation import Simulator
-from tfplan.train.optimizers import ActionOptimizer
-
-
-Action = Sequence[np.ndarray]
-State = Sequence[np.ndarray]
-StateTensor = Sequence[tf.Tensor]
-
-
-DEFAULT_CONFIG = {
-    'epochs': 200
-}
+from tfplan.planners.stochastic import utils
+from tfplan.train.optimizer import ActionOptimizer
 
 
 class StraightLinePlanner(Planner):
+    """StraightLinePlanner class implements the Planner interface
+    for the online gradient-based planner that chooses the next action
+    based on the lower bound objective function.
 
-    def __init__(self, compiler: Compiler, config: Dict[str, Any]) -> None:
-        super(Planner, self).__init__(compiler, { **DEFAULT_CONFIG, **config })
+    Args:
+        model (pyrddl.rddl.RDDL): A RDDL model.
+        config (Dict[str, Any]): The planner config dict.
+    """
 
-    def build(self, horizon: int) -> None:
+    # pylint: disable=too-many-instance-attributes
+
+    def __init__(self, model, config):
+        compiler = ReparameterizationCompiler(model, batch_size=config["batch_size"])
+        super(StraightLinePlanner, self).__init__(compiler, config)
+
+        self.policy = None
+        self.initial_state = None
+
+        self.simulator = None
+        self.trajectory = None
+        self.final_state = None
+        self.total_reward = None
+
+        self.avg_total_reward = None
+        self.loss = None
+
+        self.optimizer = None
+        self.train_op = None
+
+    def build(self, horizon: int):
         with self.graph.as_default():
             self._build_policy_ops(horizon)
             self._build_initial_state_ops()
@@ -49,49 +67,76 @@ class StraightLinePlanner(Planner):
             self._build_loss_ops()
             self._build_optimization_ops()
 
-    def _build_policy_ops(self, horizon: int):
+    def _build_policy_ops(self, horizon):
         self.policy = OpenLoopPolicy(self.compiler, horizon, parallel_plans=False)
-        self.policy.build('planning')
+        self.policy.build("planning")
 
     def _build_initial_state_ops(self):
-        self.initial_state = tuple(tf.placeholder(t.dtype, t.shape) for t in self.compiler.initial_state())
+        self.initial_state = tuple(
+            tf.placeholder(t.dtype, t.shape) for t in self.compiler.initial_state()
+        )
 
     def _build_trajectory_ops(self):
         self.simulator = Simulator(self.compiler, self.policy, config=None)
         self.simulator.build()
-        self.trajectory, self.final_state, self.total_reward = self.simulator.trajectory(self.initial_state)
+        self.trajectory, self.final_state, self.total_reward = self.simulator.trajectory(
+            self.initial_state
+        )
 
     def _build_loss_ops(self):
-        with tf.name_scope('loss'):
+        with tf.name_scope("loss"):
             self.avg_total_reward = tf.reduce_mean(self.total_reward)
             self.loss = tf.square(self.avg_total_reward)
 
     def _build_optimization_ops(self):
-        self.optimizer = ActionOptimizer(self.compiler, self.config['optimization'])
+        self.optimizer = ActionOptimizer(self.compiler, self.config["optimization"])
+        self.optimizer.build()
         self.train_op = self.optimizer.minimize(self.loss)
 
-    def __call__(self, state: State, t: int) -> Action:
+    def __call__(self, state, timestep):
 
         with tf.Session(graph=self.graph) as sess:
 
             # init
             sess.run(tf.global_variables_initializer())
 
-            # sample scenarios
-            samples = utils.evaluate_noise_samples_as_inputs(sess, self.simulator.samples)
-
-            # fix current state and scenarios
+            # model inputs
             feed_dict = {
-                self.initial_state: state,
-                self.simulator.noise: samples
+                self.initial_state: self._get_batch_initial_state(state),
+                self.simulator.noise: self._get_noise_samples(sess),
             }
 
             # optimize policy variables
-            for step in range(self.config['epochs']):
-                _, loss = sess.run([self._train_op, self.loss], feed_dict=feed_dict)
+            for _ in range(self.config["epochs"]):
+                _, _ = sess.run([self.train_op, self.loss], feed_dict=feed_dict)
 
             # select action
-            actions = sess.run(self.trajectory.actions, feed_dict=feed_dict)
-            action = tuple(fluent[0] for fluent in actions)
+            action = self._get_action(sess, feed_dict)
 
+        return action
+
+    def _get_batch_initial_state(self, state):
+        batch_size = self.compiler.batch_size
+        return tuple(
+            map(
+                lambda fluent: np.tile(
+                    fluent, (batch_size, *([1] * len(fluent.shape)))
+                ),
+                state.values(),
+            )
+        )
+
+    def _get_noise_samples(self, sess):
+        samples = utils.evaluate_noise_samples_as_inputs(sess, self.simulator.samples)
+        return samples
+
+    def _get_action(self, sess, feed_dict):
+        action_fluent_ordering = self.compiler.rddl.domain.action_fluent_ordering
+        actions = sess.run(self.trajectory.actions, feed_dict=feed_dict)
+        action = OrderedDict(
+            {
+                name: fluent[0][0]
+                for name, fluent in zip(action_fluent_ordering, actions)
+            }
+        )
         return action
