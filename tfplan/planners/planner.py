@@ -51,7 +51,7 @@ class Planner(metaclass=abc.ABCMeta):
         return self.compiler.batch_size
 
     @abc.abstractmethod
-    def build(self, horizon):
+    def build(self):
         """Builds the planner."""
         raise NotImplementedError
 

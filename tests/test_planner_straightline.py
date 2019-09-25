@@ -24,6 +24,11 @@ import rddlgym
 from tfplan.planners import DEFAULT_CONFIG, StraightLinePlanner
 
 
+BATCH_SIZE = 16
+HORIZON = 20
+EPOCHS = 5
+
+
 @pytest.fixture(scope="module")
 def rddl():
     return "Navigation-v2"
@@ -37,9 +42,12 @@ def env(rddl):
 @pytest.fixture(scope="module")
 def planner(rddl):
     model = rddlgym.make(rddl, mode=rddlgym.AST)
-    config = {**DEFAULT_CONFIG, **{"epochs": 10}}
+    config = {
+        **DEFAULT_CONFIG,
+        **{"batch_size": BATCH_SIZE, "horizon": HORIZON, "epochs": EPOCHS},
+    }
     planner_ = StraightLinePlanner(model, config)
-    planner_.build(model.instance.horizon)
+    planner_.build()
     return planner_
 
 
@@ -60,6 +68,15 @@ def test_build_initial_state_ops(planner):
     for tensor, fluent in zip(initial_state, compiler.initial_state_fluents):
         assert tensor.dtype == fluent[1].dtype
         assert tensor.shape == (batch_size, *fluent[1].shape.fluent_shape)
+
+
+def test_build_sequence_length_ops(planner):
+    assert planner.steps_to_go is not None
+    assert planner.steps_to_go.dtype == tf.int32
+    assert planner.steps_to_go.shape == ()
+    assert planner.sequence_length is not None
+    assert planner.sequence_length.dtype == tf.int32
+    assert planner.sequence_length.shape == (planner.compiler.batch_size,)
 
 
 def test_build_trajectory_ops(planner):
@@ -113,6 +130,7 @@ def test_get_action(planner, env):
         feed_dict = {
             planner.initial_state: batch_state,
             planner.simulator.noise: samples,
+            planner.steps_to_go: HORIZON,
         }
         actions_ = planner._get_action(sess, feed_dict)
         action_fluents = planner.compiler.default_action_fluents

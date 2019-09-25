@@ -46,7 +46,11 @@ class StraightLinePlanner(Planner):
         super(StraightLinePlanner, self).__init__(compiler, config)
 
         self.policy = None
+
         self.initial_state = None
+
+        self.steps_to_go = None
+        self.sequence_length = None
 
         self.simulator = None
         self.trajectory = None
@@ -59,15 +63,17 @@ class StraightLinePlanner(Planner):
         self.optimizer = None
         self.train_op = None
 
-    def build(self, horizon: int):
+    def build(self,):
         with self.graph.as_default():
-            self._build_policy_ops(horizon)
+            self._build_policy_ops()
             self._build_initial_state_ops()
+            self._build_sequence_length_ops()
             self._build_trajectory_ops()
             self._build_loss_ops()
             self._build_optimization_ops()
 
-    def _build_policy_ops(self, horizon):
+    def _build_policy_ops(self):
+        horizon = self.config["horizon"]
         self.policy = OpenLoopPolicy(self.compiler, horizon, parallel_plans=False)
         self.policy.build("planning")
 
@@ -76,11 +82,17 @@ class StraightLinePlanner(Planner):
             tf.placeholder(t.dtype, t.shape) for t in self.compiler.initial_state()
         )
 
+    def _build_sequence_length_ops(self):
+        self.steps_to_go = tf.placeholder(tf.int32, shape=())
+        self.sequence_length = tf.tile(
+            tf.reshape(self.steps_to_go, [1]), [self.compiler.batch_size]
+        )
+
     def _build_trajectory_ops(self):
         self.simulator = Simulator(self.compiler, self.policy, config=None)
         self.simulator.build()
         self.trajectory, self.final_state, self.total_reward = self.simulator.trajectory(
-            self.initial_state
+            self.initial_state, self.sequence_length
         )
 
     def _build_loss_ops(self):
@@ -96,21 +108,17 @@ class StraightLinePlanner(Planner):
     def __call__(self, state, timestep):
 
         with tf.Session(graph=self.graph) as sess:
-
-            # init
             sess.run(tf.global_variables_initializer())
 
-            # model inputs
             feed_dict = {
                 self.initial_state: self._get_batch_initial_state(state),
                 self.simulator.noise: self._get_noise_samples(sess),
+                self.steps_to_go: self.config["horizon"] - timestep,
             }
 
-            # optimize policy variables
             for _ in range(self.config["epochs"]):
                 _, _ = sess.run([self.train_op, self.loss], feed_dict=feed_dict)
 
-            # select action
             action = self._get_action(sess, feed_dict)
 
         return action
