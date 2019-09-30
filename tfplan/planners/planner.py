@@ -19,6 +19,13 @@
 import abc
 
 
+DEFAULT_CONFIG = {
+    "batch_size": 128,
+    "epochs": 200,
+    "optimization": {"optimizer": "RMSProp", "learning_rate": 0.001},
+}
+
+
 class Planner(metaclass=abc.ABCMeta):
     """Planner abstract base class.
 
@@ -44,7 +51,7 @@ class Planner(metaclass=abc.ABCMeta):
         return self.compiler.batch_size
 
     @abc.abstractmethod
-    def build(self, horizon):
+    def build(self):
         """Builds the planner."""
         raise NotImplementedError
 

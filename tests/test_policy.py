@@ -14,12 +14,13 @@
 # along with tf-plan. If not, see <http://www.gnu.org/licenses/>.
 
 
-from pyrddl.parser import RDDLParser
-from rddl2tf import Compiler
-from tfplan.train.policy import OpenLoopPolicy
-
 import tensorflow as tf
 import unittest
+
+from pyrddl.parser import RDDLParser
+from rddl2tf import DefaultCompiler
+
+from tfplan.train.policy import OpenLoopPolicy
 
 
 class TestOpenLoopPolicy(unittest.TestCase):
@@ -39,15 +40,16 @@ class TestOpenLoopPolicy(unittest.TestCase):
             rddl.build()
 
         # initializer RDDL2TensorFlow compiler
-        cls.rddl2tf = Compiler(rddl, batch_mode=True)
+        cls.compiler = DefaultCompiler(rddl, cls.batch_size)
+        cls.compiler.init()
+        cls.state = cls.compiler.initial_state()
 
         # initialize open-loop policy
-        cls.policy = OpenLoopPolicy(cls.rddl2tf, cls.batch_size, cls.horizon)
+        cls.policy = OpenLoopPolicy(cls.compiler, cls.horizon)
         cls.policy.build('test')
 
         # execute policy for the given horizon and initial state
-        with cls.rddl2tf.graph.as_default():
-            cls.state = cls.rddl2tf.compile_initial_state(cls.batch_size)
+        with cls.compiler.graph.as_default():
             cls.actions = []
             for t in range(cls.horizon-1, -1, -1):
                 timestep = tf.constant(t, dtype=tf.float32, shape=(cls.batch_size, 1))
@@ -55,10 +57,10 @@ class TestOpenLoopPolicy(unittest.TestCase):
                 cls.actions.append(action)
 
     def test_policy_variables(self):
-        action_fluents = self.rddl2tf.rddl.domain.action_fluent_ordering
-        action_size = self.rddl2tf.rddl.action_size
+        action_fluents = self.compiler.rddl.domain.action_fluent_ordering
+        action_size = self.compiler.rddl.action_size
 
-        with self.rddl2tf.graph.as_default():
+        with self.compiler.graph.as_default():
             policy_variables = tf.trainable_variables()
             name2variable = { var.name: var for var in policy_variables }
 
@@ -77,8 +79,8 @@ class TestOpenLoopPolicy(unittest.TestCase):
                     'policy variable has shape (batch_size, horizon, action_fluent_shape')
 
     def test_policy_actions(self):
-        action_fluents = self.rddl2tf.rddl.domain.action_fluent_ordering
-        action_size = self.rddl2tf.rddl.action_size
+        action_fluents = self.compiler.rddl.domain.action_fluent_ordering
+        action_size = self.compiler.rddl.action_size
 
         for action in self.actions:
             self.assertIsInstance(action, tuple, 'action is factored')

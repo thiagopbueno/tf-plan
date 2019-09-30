@@ -28,7 +28,7 @@ def cell_size(sizes):
 
 
 def to_tensor(fluents):
-    return tuple(f.tensor for f in fluents)
+    return tuple((f.tensor,) for f in fluents)
 
 
 def get_noise_samples(reparameterization_map, batch_size, horizon):
