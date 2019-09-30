@@ -29,24 +29,14 @@ HORIZON = 20
 EPOCHS = 5
 
 
-@pytest.fixture(scope="module")
-def rddl():
-    return "Navigation-v2"
-
-
-@pytest.fixture(scope="module")
-def env(rddl):
-    return rddlgym.make(rddl, mode=rddlgym.GYM)
-
-
-@pytest.fixture(scope="module")
-def planner(rddl):
-    model = rddlgym.make(rddl, mode=rddlgym.AST)
+@pytest.fixture(scope="module", params=["Navigation-v2"])
+def planner(request):
+    rddl = request.param
     config = {
         **DEFAULT_CONFIG,
         **{"batch_size": BATCH_SIZE, "horizon": HORIZON, "epochs": EPOCHS},
     }
-    planner_ = StraightLinePlanner(model, config)
+    planner_ = StraightLinePlanner(rddl, config)
     planner_.build()
     return planner_
 
@@ -92,17 +82,19 @@ def test_build_trajectory_ops(planner):
         assert action.shape.as_list() == [batch_size, horizon, *size]
 
 
-def test_call(planner, env):
+def test_call(planner):
+    env = rddlgym.make(planner.rddl, mode=rddlgym.GYM)
     state, timestep = env.reset()
     action = planner(state, timestep)
     assert isinstance(action, OrderedDict)
 
 
-def test_get_batch_initial_state(planner, env):
+def test_get_batch_initial_state(planner):
     # pylint: disable=protected-access
+    env = rddlgym.make(planner.rddl, mode=rddlgym.GYM)
+
     with planner.compiler.graph.as_default():
         state = env.observation_space.sample()
-
         batch_state = planner._get_batch_initial_state(state)
         assert len(state) == len(batch_state)
 
@@ -120,8 +112,10 @@ def test_get_noise_samples(planner):
         assert planner.simulator.noise.shape.as_list() == list(samples_.shape)
 
 
-def test_get_action(planner, env):
+def test_get_action(planner):
     # pylint: disable=protected-access
+    env = rddlgym.make(planner.rddl, mode=rddlgym.GYM)
+
     with tf.Session(graph=planner.compiler.graph) as sess:
         sess.run(tf.global_variables_initializer())
         state = env.observation_space.sample()

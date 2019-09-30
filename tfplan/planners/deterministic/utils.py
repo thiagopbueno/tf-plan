@@ -13,9 +13,15 @@
 # You should have received a copy of the GNU General Public License
 # along with tf-plan. If not, see <http://www.gnu.org/licenses/>.
 
+
+"""Collection of RNN-based simulation utility functions."""
+
 # pylint: disable=missing-docstring
 
 
-from tfplan.planners.deterministic.tensorplan import Tensorplan
-from tfplan.planners.planner import DEFAULT_CONFIG, Planner
-from tfplan.planners.stochastic.straightline import StraightLinePlanner
+def cell_size(sizes):
+    return tuple(sz if sz != () else (1,) for sz in sizes)
+
+
+def to_tensor(fluents):
+    return tuple(f.tensor for f in fluents)
