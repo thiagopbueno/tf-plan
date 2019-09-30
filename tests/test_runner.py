@@ -26,6 +26,10 @@ from tfplan.planners import DEFAULT_CONFIG, StraightLinePlanner
 from tfplan.test.runner import Runner
 
 
+HORIZON = 20
+EPOCHS = 3
+
+
 @pytest.fixture(scope="module")
 def rddl():
     return "Navigation-v2"
@@ -38,7 +42,7 @@ def runner(rddl):
 
     model = rddlgym.make(rddl, mode=rddlgym.AST)
 
-    config = {**DEFAULT_CONFIG, "epochs": 3}
+    config = {**DEFAULT_CONFIG, "epochs": EPOCHS, "horizon": HORIZON}
     planner = StraightLinePlanner(model, config)
 
     runner_ = Runner(env, planner, debug=False)

@@ -38,7 +38,7 @@ class Runner:
 
     def build(self):
         """Builds the runner's underlying components."""
-        self.planner.build(self.env.horizon)
+        self.planner.build()
 
     def run(self, mode=None):
         """Runs the planner-environment loop until termination.

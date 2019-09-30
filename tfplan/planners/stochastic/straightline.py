@@ -30,9 +30,9 @@ from tfplan.train.optimizer import ActionOptimizer
 
 
 class StraightLinePlanner(Planner):
-    """StraightLinePlanner class implements the Planner interface
-    for the online gradient-based planner that chooses the next action
-    based on the lower bound objective function.
+    """StraightLinePlanner class implements the online gradient-based
+    planner that chooses the next action based on the lower bound of
+    the Value function of the start state.
 
     Args:
         model (pyrddl.rddl.RDDL): A RDDL model.
