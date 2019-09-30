@@ -16,6 +16,7 @@
 # pylint: disable=missing-docstring
 
 
+from collections import OrderedDict
 import tensorflow as tf
 
 from rddl2tf.compilers import DefaultCompiler
@@ -124,5 +125,11 @@ class Tensorplan(Planner):
             self._plan = self.run()
 
         # select action for given timestep
-        action = tuple(action[timestep] for action in self._plan)
+        action_fluent_ordering = self.compiler.rddl.domain.action_fluent_ordering
+        action = OrderedDict(
+            {
+                name: action[timestep]
+                for name, action in zip(action_fluent_ordering, self._plan)
+            }
+        )
         return action

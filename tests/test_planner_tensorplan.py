@@ -94,5 +94,5 @@ def test_call(planner):
         action = planner(state, timestep)
 
         assert len(action) == len(planner._plan)
-        for a1, a2 in zip(action, planner._plan):
+        for (_, a1), a2 in zip(action.items(), planner._plan):
             assert np.allclose(a1, a2[timestep])
