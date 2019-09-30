@@ -18,6 +18,8 @@
 
 import abc
 
+import rddlgym
+
 
 DEFAULT_CONFIG = {
     "batch_size": 128,
@@ -34,8 +36,10 @@ class Planner(metaclass=abc.ABCMeta):
         config (Dict[str, Any]): A config dict.
     """
 
-    def __init__(self, compiler, config):
-        self.compiler = compiler
+    def __init__(self, rddl, compiler_cls, config):
+        self.rddl = rddl
+        self.model = rddlgym.make(rddl, mode=rddlgym.AST)
+        self.compiler = compiler_cls(self.model, batch_size=config["batch_size"])
         self.config = config
 
         self.compiler.init()

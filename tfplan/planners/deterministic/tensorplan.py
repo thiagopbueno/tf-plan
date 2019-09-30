@@ -38,9 +38,8 @@ class Tensorplan(Planner):
 
     # pylint: disable=too-many-instance-attributes
 
-    def __init__(self, model, config):
-        compiler = DefaultCompiler(model, batch_size=config["batch_size"])
-        super(Tensorplan, self).__init__(compiler, config)
+    def __init__(self, rddl, config):
+        super(Tensorplan, self).__init__(rddl, DefaultCompiler, config)
 
         self.policy = None
         self.initial_state = None

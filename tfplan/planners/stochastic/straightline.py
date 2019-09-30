@@ -41,9 +41,10 @@ class StraightLinePlanner(Planner):
 
     # pylint: disable=too-many-instance-attributes
 
-    def __init__(self, model, config):
-        compiler = ReparameterizationCompiler(model, batch_size=config["batch_size"])
-        super(StraightLinePlanner, self).__init__(compiler, config)
+    def __init__(self, rddl, config):
+        super(StraightLinePlanner, self).__init__(
+            rddl, ReparameterizationCompiler, config
+        )
 
         self.policy = None
 
