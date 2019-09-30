@@ -22,36 +22,55 @@ import pytest
 
 import rddlgym
 
-from tfplan.planners import DEFAULT_CONFIG, StraightLinePlanner
+from tfplan.planners import DEFAULT_CONFIG, StraightLinePlanner, Tensorplan
 from tfplan.test.runner import Runner
 
 
-HORIZON = 20
+HORIZON = 5
 EPOCHS = 3
 
 
-@pytest.fixture(scope="module")
-def rddl():
-    return "Navigation-v2"
+@pytest.fixture(scope="module", params=["Navigation-v1"])
+def tensorplan(request):
+    rddl = request.param
 
-
-@pytest.fixture(scope="module")
-def runner(rddl):
     env = rddlgym.make(rddl, mode=rddlgym.GYM)
-    env._horizon = 3
-
-    model = rddlgym.make(rddl, mode=rddlgym.AST)
+    env._horizon = HORIZON
 
     config = {**DEFAULT_CONFIG, "epochs": EPOCHS, "horizon": HORIZON}
-    planner = StraightLinePlanner(model, config)
+    planner = Tensorplan(rddl, config)
+    planner.build()
 
-    runner_ = Runner(env, planner, debug=False)
-    runner_.build()
-    yield runner_
-    runner_.close()
+    runner = Runner(env, planner, debug=False)
+    yield runner
+    runner.close()
 
 
-def test_run(runner):
+@pytest.fixture(scope="module", params=["Navigation-v2"])
+def straightline(request):
+    rddl = request.param
+
+    env = rddlgym.make(rddl, mode=rddlgym.GYM)
+    env._horizon = HORIZON
+
+    config = {**DEFAULT_CONFIG, "epochs": EPOCHS, "horizon": HORIZON}
+    planner = StraightLinePlanner(rddl, config)
+    planner.build()
+
+    runner = Runner(env, planner, debug=False)
+    yield runner
+    runner.close()
+
+
+def test_run_tensorplan(tensorplan):
+    _test_run(tensorplan)
+
+
+def test_run_straightline(straightline):
+    _test_run(straightline)
+
+
+def _test_run(runner):
     total_reward, trajectory = runner.run()
     assert len(trajectory) == runner.env._horizon
 

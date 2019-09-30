@@ -19,8 +19,6 @@
 import numpy as np
 import pytest
 
-import rddlgym
-
 from tfplan.planners import Tensorplan
 from tfplan.train.policy import OpenLoopPolicy
 
@@ -33,15 +31,15 @@ EPOCHS = 10
 @pytest.fixture(scope="module", params=["Navigation-v1"])
 def planner(request):
     rddl = request.param
-    model = rddlgym.make(rddl, mode=rddlgym.AST)
     config = {
         "batch_size": BATCH_SIZE,
         "epochs": EPOCHS,
+        "horizon": HORIZON,
         "optimization": {"optimizer": "RMSProp", "learning_rate": 1e-3},
     }
-    planner = Tensorplan(model, config)
-    planner.build(HORIZON)
-    yield planner
+    planner = Tensorplan(rddl, config)
+    planner.build()
+    return planner
 
 
 def test_build_policy_ops(planner):
