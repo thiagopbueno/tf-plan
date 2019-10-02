@@ -13,83 +13,110 @@
 # You should have received a copy of the GNU General Public License
 # along with tf-plan. If not, see <http://www.gnu.org/licenses/>.
 
+# pylint: disable=missing-docstring,redefined-outer-name,protected-access
 
+
+import numpy as np
+import pytest
 import tensorflow as tf
-import unittest
 
-from pyrddl.parser import RDDLParser
+import rddlgym
 from rddl2tf import DefaultCompiler
 
 from tfplan.train.policy import OpenLoopPolicy
 
 
-class TestOpenLoopPolicy(unittest.TestCase):
+HORIZON = 20
+BATCH_SIZE = 32
 
-    @classmethod
-    def setUpClass(cls):
 
-        # initialize hyper-parameters
-        cls.horizon = 40
-        cls.batch_size = 64
+@pytest.fixture(scope="module", params=["Navigation-v1"])
+def compiler(request):
+    rddl = request.param
+    model = rddlgym.make(rddl, mode=rddlgym.AST)
+    compiler = DefaultCompiler(model, batch_size=BATCH_SIZE)
+    compiler.init()
+    return compiler
 
-        # parse RDDL file
-        with open('rddl/deterministic/Navigation.rddl') as file:
-            parser = RDDLParser()
-            parser.build()
-            rddl = parser.parse(file.read())
-            rddl.build()
 
-        # initializer RDDL2TensorFlow compiler
-        cls.compiler = DefaultCompiler(rddl, cls.batch_size)
-        cls.compiler.init()
-        cls.state = cls.compiler.initial_state()
+@pytest.fixture(scope="module")
+def parallel_plans(compiler):
+    policy = OpenLoopPolicy(compiler, HORIZON, parallel_plans=True)
+    policy.build("parallel_plans")
+    return policy
 
-        # initialize open-loop policy
-        cls.policy = OpenLoopPolicy(cls.compiler, cls.horizon)
-        cls.policy.build('test')
 
-        # execute policy for the given horizon and initial state
-        with cls.compiler.graph.as_default():
-            cls.actions = []
-            for t in range(cls.horizon-1, -1, -1):
-                timestep = tf.constant(t, dtype=tf.float32, shape=(cls.batch_size, 1))
-                action = cls.policy(cls.state, timestep)
-                cls.actions.append(action)
+@pytest.fixture(scope="module")
+def non_parallel_plans(compiler):
+    policy = OpenLoopPolicy(compiler, HORIZON, parallel_plans=False)
+    policy.build("non_parallel_plans")
+    return policy
 
-    def test_policy_variables(self):
-        action_fluents = self.compiler.rddl.domain.action_fluent_ordering
-        action_size = self.compiler.rddl.action_size
 
-        with self.compiler.graph.as_default():
-            policy_variables = tf.trainable_variables()
-            name2variable = { var.name: var for var in policy_variables }
+def test_build_policy_variables(parallel_plans, non_parallel_plans):
+    _test_build_policy_variables(parallel_plans, batch_size=BATCH_SIZE)
+    _test_build_policy_variables(non_parallel_plans, batch_size=1)
 
-            self.assertEqual(len(policy_variables), len(action_fluents),
-                'one variable per action fluent')
 
-            for fluent, size, var in zip(action_fluents, action_size, policy_variables):
-                var_name = 'test/' + fluent.replace('/', '-') + ':0'
-                self.assertIn(var_name, name2variable, 'variable has fluent name')
+def _test_build_policy_variables(policy, batch_size):
+    compiler = policy._compiler
+    action_size = compiler.rddl.action_size
+    policy_variables = policy._policy_variables
 
-                self.assertIsInstance(var, tf.Variable,
-                    'policy variable is a variable tensor')
+    assert isinstance(policy_variables, tuple)
+    assert len(policy_variables) == len(action_size)
 
-                shape = [self.batch_size, self.horizon] + list(size)
-                self.assertListEqual(var.shape.as_list(), shape,
-                    'policy variable has shape (batch_size, horizon, action_fluent_shape')
+    for policy_var, size in zip(policy_variables, action_size):
+        assert isinstance(policy_var, tf.Variable)
+        assert policy_var.shape == (batch_size, HORIZON, *size)
 
-    def test_policy_actions(self):
-        action_fluents = self.compiler.rddl.domain.action_fluent_ordering
-        action_size = self.compiler.rddl.action_size
 
-        for action in self.actions:
-            self.assertIsInstance(action, tuple, 'action is factored')
-            self.assertEqual(len(action), len(action_fluents),
-                'one action tensor per action fluent in each timestep')
+def test_call_parallel_plans(parallel_plans):
+    policy_variables = parallel_plans._policy_variables
 
-            for fluent, size, tensor in zip(action_fluents, action_size, action):
-                self.assertIsInstance(tensor, tf.Tensor, 'action fluent is a tf.Tensor')
+    compiler = parallel_plans._compiler
+    state = compiler.initial_state()
+    with compiler.graph.as_default():
+        timestep = tf.constant(0, dtype=tf.int32, shape=(BATCH_SIZE, 1))
 
-                shape = [self.batch_size] + list(size)
-                self.assertListEqual(tensor.shape.as_list(), shape,
-                    'action tensor has shape (batch_size, fluent_shape)')
+    action = parallel_plans(state, timestep)
+
+    assert len(action) == len(policy_variables)
+    for action_tensor, policy_var in zip(action, policy_variables):
+        assert isinstance(action_tensor, tf.Tensor)
+        assert action_tensor.shape == (BATCH_SIZE, *policy_var.shape[2:])
+
+    with tf.Session(graph=compiler.graph) as sess:
+        sess.run(tf.global_variables_initializer())
+        actions_ = sess.run(action)
+
+        for action_ in actions_:
+            for i in range(BATCH_SIZE):
+                for j in range(BATCH_SIZE):
+                    if i != j:
+                        assert not np.allclose(action_[i], action_[j])
+
+
+def test_call_non_parallel_plans(non_parallel_plans):
+    policy_variables = non_parallel_plans._policy_variables
+
+    compiler = non_parallel_plans._compiler
+    state = compiler.initial_state()
+    with compiler.graph.as_default():
+        timestep = tf.constant(0, dtype=tf.int32, shape=(BATCH_SIZE, 1))
+
+    action = non_parallel_plans(state, timestep)
+
+    assert len(action) == len(policy_variables)
+    for action_tensor, policy_var in zip(action, policy_variables):
+        assert isinstance(action_tensor, tf.Tensor)
+        assert action_tensor.shape == (BATCH_SIZE, *policy_var.shape[2:])
+
+    with tf.Session(graph=compiler.graph) as sess:
+        sess.run(tf.global_variables_initializer())
+        actions_ = sess.run(action)
+
+        for action_ in actions_:
+            for i in range(BATCH_SIZE):
+                for j in range(BATCH_SIZE):
+                    assert np.allclose(action_[i], action_[j])
