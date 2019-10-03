@@ -4,4 +4,4 @@ python:
 install:
   - pip install -U -r requirements.txt
 script:
-  - python3 -m unittest -v tests/*.py
+  - pytest -sv --disable-warnings 2>/dev/null
