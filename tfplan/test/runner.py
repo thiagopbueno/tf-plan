@@ -80,6 +80,13 @@ class Runner:
         """Closes the environment."""
         self.env.close()
 
+    def __enter__(self):
+        self.build()
+        return self
+
+    def __exit__(self, exc_type, exc_value, exc_traceback):
+        self.close()
+
     @staticmethod
     def _print_debug_info(state, action, reward, next_state, done, info):
         # pylint: disable=too-many-arguments

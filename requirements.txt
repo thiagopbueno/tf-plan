@@ -2,5 +2,5 @@ rddlgym>=0.5.8
 rddl2tf>=0.5.1
 tensorflow==1.5.0
 tensorflow-tensorboard==1.5.1
-tfrddlsim>=0.7.0
-typing==3.6.4
+pytest
+Click

@@ -1,48 +1,69 @@
-import tfplan
+# This file is part of tf-plan.
+
+# tf-plan is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+
+# tf-plan is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with tf-plan. If not, see <http://www.gnu.org/licenses/>.
+
+# pylint: disable=missing-docstring
 
 
 import os
 from setuptools import setup, find_packages
 
+import tfplan
+
 
 def read(filename):
     filepath = os.path.join(os.path.dirname(__file__), filename)
-    file = open(filepath, 'r')
+    file = open(filepath, "r")
     return file.read()
 
 
 setup(
-    name='tf-plan',
+    name="tf-plan",
     version=tfplan.__version__,
-    author='Thiago P. Bueno',
-    author_email='thiago.pbueno@gmail.com',
-    description='Planning through backpropagation using TensorFlow.',
-    long_description=read('README.md'),
-    long_description_content_type='text/markdown',
-    license='GNU General Public License v3.0',
-    keywords=['planning', 'tensorflow', 'rddl', 'mdp'],
-    url='https://github.com/thiagopbueno/tf-plan',
+    author="Thiago P. Bueno",
+    author_email="thiago.pbueno@gmail.com",
+    description="Planning through backpropagation using TensorFlow.",
+    long_description=read("README.md"),
+    long_description_content_type="text/markdown",
+    license="GNU General Public License v3.0",
+    keywords=["planning", "tensorflow", "rddl", "mdp"],
+    url="https://github.com/thiagopbueno/tf-plan",
     packages=find_packages(),
-    scripts=['scripts/tfplan'],
-    python_requires='>=3.5',
+    entry_points="""
+        [console_scripts]
+        tfplan=scripts.tfplan:cli
+    """,
+    python_requires=">=3.5",
     install_requires=[
-        'rddlgym>=0.5.8',
-        'rddl2tf>=0.5.1',
-        'tfrddlsim>=0.7.0',
-        'tensorflow',
-        'tensorflow-tensorboard',
-        'typing'
+        "Click",
+        "rddlgym>=0.5.8",
+        "rddl2tf>=0.5.1",
+        "tfrddlsim>=0.7.0",
+        "tensorflow",
+        "tensorflow-tensorboard",
+        "typing",
     ],
     include_package_data=True,
     zip_safe=False,
     classifiers=[
-        'Development Status :: 3 - Alpha',
-        'Environment :: Console',
-        'Intended Audience :: Science/Research',
-        'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
-        'Natural Language :: English',
-        'Operating System :: OS Independent',
-        'Programming Language :: Python :: 3',
-        'Topic :: Scientific/Engineering :: Artificial Intelligence'
+        "Development Status :: 3 - Alpha",
+        "Environment :: Console",
+        "Intended Audience :: Science/Research",
+        "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+        "Natural Language :: English",
+        "Operating System :: OS Independent",
+        "Programming Language :: Python :: 3",
+        "Topic :: Scientific/Engineering :: Artificial Intelligence",
     ],
 )
