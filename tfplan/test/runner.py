@@ -69,7 +69,9 @@ class Runner:
                 self.env.render(mode)
 
             if self.debug:
-                self._print_debug_info(state, action, reward, next_state, done, info)
+                self._print_debug_info(
+                    timestep, state, action, reward, next_state, done, info
+                )
 
             state = next_state
             timestep = self.env.timestep
@@ -88,8 +90,10 @@ class Runner:
         self.close()
 
     @staticmethod
-    def _print_debug_info(state, action, reward, next_state, done, info):
+    def _print_debug_info(timestep, state, action, reward, next_state, done, info):
         # pylint: disable=too-many-arguments
+        print(f"::: Timestep = {timestep} :::")
+        print()
         print(">> State:")
         for name, fluent in state.items():
             print(f"{name} = {fluent}")
