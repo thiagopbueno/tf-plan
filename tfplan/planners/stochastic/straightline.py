@@ -19,6 +19,7 @@
 from collections import OrderedDict
 import numpy as np
 import tensorflow as tf
+from tqdm import trange
 
 from rddl2tf.compilers import ReparameterizationCompiler
 
@@ -117,8 +118,18 @@ class StraightLinePlanner(Planner):
                 self.steps_to_go: self.config["horizon"] - timestep,
             }
 
-            for _ in range(self.config["epochs"]):
-                _, _ = sess.run([self.train_op, self.loss], feed_dict=feed_dict)
+            epochs = self.config["epochs"]
+            with trange(epochs) as t:
+                for _ in t:
+                    _, loss_, avg_total_reward_ = sess.run(
+                        [self.train_op, self.loss, self.avg_total_reward],
+                        feed_dict=feed_dict,
+                    )
+                    t.set_description(f"Timestep {timestep}")
+                    t.set_postfix(
+                        loss=f"{loss_:10.4f}",
+                        avg_total_reward=f"{avg_total_reward_:10.4f}",
+                    )
 
             action = self._get_action(sess, feed_dict)
 

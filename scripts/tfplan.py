@@ -63,7 +63,7 @@ import click
     help="Optimizer's learning rate.",
     show_default=True,
 )
-@click.option("--verbose", is_flag=True, help="Verbosity flag.")
+@click.option("-v", "--verbose", is_flag=True, help="Verbosity flag.")
 @click.version_option()
 def cli(*args, **kwargs):
     """
@@ -75,7 +75,6 @@ def cli(*args, **kwargs):
     """
     import rddlgym
 
-    from tfplan.test.runner import Runner
     from tfplan.planners import Tensorplan, StraightLinePlanner
 
     PLANNERS = {"tensorplan": Tensorplan, "straightline": StraightLinePlanner}
@@ -95,5 +94,5 @@ def cli(*args, **kwargs):
 
     debug = kwargs["verbose"]
 
-    with Runner(env, planner, debug=debug) as runner:
+    with rddlgym.Runner(env, planner, debug=debug) as runner:
         total_reward, trajectory = runner.run()

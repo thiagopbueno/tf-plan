@@ -18,6 +18,7 @@
 
 from collections import OrderedDict
 import tensorflow as tf
+from tqdm import trange
 
 from rddl2tf.compilers import DefaultCompiler
 
@@ -105,14 +106,22 @@ class Tensorplan(Planner):
         """Run the planner for the given number of epochs.
 
         Returns:
-            plan (Sequence(np.ndarray): The best solutino plan.
+            plan (Sequence(np.ndarray): The best solution plan.
         """
         with tf.Session(graph=self.graph) as sess:
 
             sess.run(tf.global_variables_initializer())
 
-            for _ in range(self.config["epochs"]):
-                _, _ = sess.run([self.train_op, self.loss])
+            epochs = self.config["epochs"]
+            with trange(epochs, desc="Training", unit="epoch") as t:
+                for _ in t:
+                    _, loss_, avg_total_reward_ = sess.run(
+                        [self.train_op, self.loss, self.avg_total_reward]
+                    )
+                    t.set_postfix(
+                        loss=f"{loss_:10.4f}",
+                        avg_total_reward=f"{avg_total_reward_:10.4f}",
+                    )
 
             plan_ = sess.run(self.best_plan)
             return plan_
