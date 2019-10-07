@@ -19,6 +19,8 @@
 import numpy as np
 import pytest
 
+import rddlgym
+
 from tfplan.planners import Tensorplan
 from tfplan.train.policy import OpenLoopPolicy
 
@@ -94,3 +96,12 @@ def test_call(planner):
         assert len(action) == len(planner._plan)
         for (_, a1), a2 in zip(action.items(), planner._plan):
             assert np.allclose(a1, a2[timestep])
+
+
+def test_runner(planner):
+    # pylint: disable=protected-access
+    rddl = planner.rddl
+    env = rddlgym.make(rddl, mode=rddlgym.GYM)
+    runner = rddlgym.Runner(env, planner)
+    _, trajectory = runner.run()
+    assert len(trajectory) == env._horizon

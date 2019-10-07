@@ -21,6 +21,7 @@ import pytest
 import tensorflow as tf
 
 import rddlgym
+
 from tfplan.planners import DEFAULT_CONFIG, StraightLinePlanner
 
 
@@ -133,3 +134,13 @@ def test_get_action(planner):
         for action_, action_fluent in zip(actions_.values(), action_fluents):
             assert tf.dtypes.as_dtype(action_.dtype) == action_fluent[1].dtype
             assert list(action_.shape) == list(action_fluent[1].shape.fluent_shape)
+
+
+def test_runner(planner):
+    # pylint: disable=protected-access
+    rddl = planner.rddl
+    env = rddlgym.make(rddl, mode=rddlgym.GYM)
+    env._horizon = 3
+    runner = rddlgym.Runner(env, planner)
+    _, trajectory = runner.run()
+    assert len(trajectory) == env._horizon
