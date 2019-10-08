@@ -95,4 +95,4 @@ def cli(*args, **kwargs):
     debug = kwargs["verbose"]
 
     with rddlgym.Runner(env, planner, debug=debug) as runner:
-        total_reward, trajectory = runner.run()
+        trajectory = runner.run()
