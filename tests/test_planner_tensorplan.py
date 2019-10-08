@@ -102,6 +102,7 @@ def test_runner(planner):
     # pylint: disable=protected-access
     rddl = planner.rddl
     env = rddlgym.make(rddl, mode=rddlgym.GYM)
+    env.set_horizon(HORIZON)
     runner = rddlgym.Runner(env, planner)
     trajectory = runner.run()
     assert len(trajectory) == env._horizon

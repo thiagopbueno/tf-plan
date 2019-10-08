@@ -61,6 +61,13 @@ class Tensorplan(Planner):
 
         self._plan = None
 
+        self.train_writer = None
+        self.summaries = None
+
+    @property
+    def logdir(self):
+        return self.config.get("logdir") or f"/tmp/tfplan/tensorplan/{self.rddl}"
+
     def build(self):
         """Builds planner ops."""
         with self.graph.as_default():
@@ -70,6 +77,7 @@ class Tensorplan(Planner):
             self._build_loss_ops()
             self._build_optimization_ops()
             self._build_solution_ops()
+            self._build_summary_ops()
 
     def _build_policy_ops(self):
         horizon = self.config["horizon"]
@@ -102,6 +110,12 @@ class Tensorplan(Planner):
             action[self.best_plan_idx] for action in self.trajectory.actions
         )
 
+    def _build_summary_ops(self):
+        tf.summary.histogram("total_reward", self.total_reward)
+        tf.summary.scalar("avg_total_reward", self.avg_total_reward)
+        tf.summary.scalar("loss", self.loss)
+        self.summaries = tf.summary.merge_all()
+
     def run(self):
         """Run the planner for the given number of epochs.
 
@@ -110,14 +124,25 @@ class Tensorplan(Planner):
         """
         with tf.Session(graph=self.graph) as sess:
 
-            sess.run(tf.global_variables_initializer())
+            self.train_writer = tf.summary.FileWriter(self.logdir, self.graph)
+
+            tf.global_variables_initializer().run()
 
             epochs = self.config["epochs"]
             with trange(epochs, desc="Training", unit="epoch") as t:
-                for _ in t:
-                    _, loss_, avg_total_reward_ = sess.run(
-                        [self.train_op, self.loss, self.avg_total_reward]
+
+                for step in t:
+                    _, loss_, avg_total_reward_, summary_ = sess.run(
+                        [
+                            self.train_op,
+                            self.loss,
+                            self.avg_total_reward,
+                            self.summaries,
+                        ]
                     )
+
+                    self.train_writer.add_summary(summary_, step)
+
                     t.set_postfix(
                         loss=f"{loss_:10.4f}",
                         avg_total_reward=f"{avg_total_reward_:10.4f}",

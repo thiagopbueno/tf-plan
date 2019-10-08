@@ -63,6 +63,9 @@ import click
     help="Optimizer's learning rate.",
     show_default=True,
 )
+@click.option(
+    "--logdir", type=click.Path(), help="Directory used for logging training summaries."
+)
 @click.option("-v", "--verbose", is_flag=True, help="Verbosity flag.")
 @click.version_option()
 def cli(*args, **kwargs):
@@ -87,6 +90,7 @@ def cli(*args, **kwargs):
 
     rddl = kwargs["rddl"]
     env = rddlgym.make(rddl, mode=rddlgym.GYM)
+    env.set_horizon(kwargs["horizon"])
 
     config = kwargs
     config["optimization"] = {
@@ -100,3 +104,5 @@ def cli(*args, **kwargs):
 
     with rddlgym.Runner(env, planner, debug=debug) as runner:
         trajectory = runner.run()
+
+    click.echo(f"tensorboard --logdir {planner.logdir}")

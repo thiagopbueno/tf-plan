@@ -17,6 +17,7 @@
 
 
 from collections import OrderedDict
+import os
 import numpy as np
 import tensorflow as tf
 from tqdm import trange
@@ -63,6 +64,7 @@ class HindsightPlanner(Planner):
         self.simulator = None
         self.trajectory = None
         self.final_state = None
+        self.scenario_total_reward = None
         self.total_reward = None
 
         self.avg_total_reward = None
@@ -70,6 +72,13 @@ class HindsightPlanner(Planner):
 
         self.optimizer = None
         self.train_op = None
+
+        self.train_writer = None
+        self.summaries = None
+
+    @property
+    def logdir(self):
+        return self.config.get("logdir") or f"/tmp/tfplan/hindsight/{self.rddl}"
 
     def build(self):
         with self.graph.as_default():
@@ -81,6 +90,7 @@ class HindsightPlanner(Planner):
             self._build_trajectory_ops()
             self._build_loss_ops()
             self._build_optimization_ops()
+            self._build_summary_ops()
 
     def _build_base_policy_ops(self):
         horizon = 1
@@ -130,13 +140,14 @@ class HindsightPlanner(Planner):
     def _build_trajectory_ops(self):
         self.simulator = Simulator(self.compiler, self.scenario_policy, config=None)
         self.simulator.build()
-        self.trajectory, self.final_state, self.total_reward = self.simulator.trajectory(
+        self.trajectory, self.final_state, self.scenario_total_reward = self.simulator.trajectory(
             self.next_state, self.sequence_length
         )
 
     def _build_loss_ops(self):
         with tf.name_scope("loss"):
-            self.avg_total_reward = tf.reduce_mean(self.reward + self.total_reward)
+            self.total_reward = self.reward + self.scenario_total_reward
+            self.avg_total_reward = tf.reduce_mean(self.total_reward)
             self.loss = tf.square(self.avg_total_reward)
 
     def _build_optimization_ops(self):
@@ -144,9 +155,26 @@ class HindsightPlanner(Planner):
         self.optimizer.build()
         self.train_op = self.optimizer.minimize(self.loss)
 
+    def _build_summary_ops(self):
+        _ = tf.summary.FileWriter(self.logdir, self.graph)
+        tf.summary.histogram("reward", self.reward)
+        tf.summary.histogram("scenario_total_reward", self.scenario_total_reward)
+        tf.summary.histogram("total_reward", self.total_reward)
+        tf.summary.scalar("avg_total_reward", self.avg_total_reward)
+        tf.summary.scalar("loss", self.loss)
+        tf.summary.histogram("next_state_noise", self.cell_noise)
+        tf.summary.histogram("scenario_noise", self.simulator.noise)
+        self.summaries = tf.summary.merge_all()
+
     def __call__(self, state, timestep):
+        # pylint: disable=too-many-locals
+
         with tf.Session(graph=self.graph) as sess:
-            sess.run(tf.global_variables_initializer())
+
+            logdir = os.path.join(self.logdir, f"timestep={timestep}")
+            self.train_writer = tf.summary.FileWriter(logdir)
+
+            tf.global_variables_initializer().run()
 
             next_state_noise = utils.evaluate_noise_samples_as_inputs(
                 sess, self.cell_samples
@@ -164,11 +192,20 @@ class HindsightPlanner(Planner):
 
             epochs = self.config["epochs"]
             with trange(epochs) as t:
-                for _ in t:
-                    _, loss_, avg_total_reward_ = sess.run(
-                        [self.train_op, self.loss, self.avg_total_reward],
+
+                for step in t:
+                    _, loss_, avg_total_reward_, summary_ = sess.run(
+                        [
+                            self.train_op,
+                            self.loss,
+                            self.avg_total_reward,
+                            self.summaries,
+                        ],
                         feed_dict=feed_dict,
                     )
+
+                    self.train_writer.add_summary(summary_, step)
+
                     t.set_description(f"Timestep {timestep}")
                     t.set_postfix(
                         loss=f"{loss_:10.4f}",

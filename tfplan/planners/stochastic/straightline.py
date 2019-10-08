@@ -17,6 +17,7 @@
 
 
 from collections import OrderedDict
+import os
 import numpy as np
 import tensorflow as tf
 from tqdm import trange
@@ -65,6 +66,13 @@ class StraightLinePlanner(Planner):
         self.optimizer = None
         self.train_op = None
 
+        self.train_writer = None
+        self.summaries = None
+
+    @property
+    def logdir(self):
+        return self.config.get("logdir") or f"/tmp/tfplan/straigthline/{self.rddl}"
+
     def build(self,):
         with self.graph.as_default():
             self._build_policy_ops()
@@ -73,6 +81,7 @@ class StraightLinePlanner(Planner):
             self._build_trajectory_ops()
             self._build_loss_ops()
             self._build_optimization_ops()
+            self._build_summary_ops()
 
     def _build_policy_ops(self):
         horizon = self.config["horizon"]
@@ -107,10 +116,22 @@ class StraightLinePlanner(Planner):
         self.optimizer.build()
         self.train_op = self.optimizer.minimize(self.loss)
 
+    def _build_summary_ops(self):
+        _ = tf.summary.FileWriter(self.logdir, self.graph)
+        tf.summary.histogram("total_reward", self.total_reward)
+        tf.summary.scalar("avg_total_reward", self.avg_total_reward)
+        tf.summary.scalar("loss", self.loss)
+        tf.summary.histogram("scenario_noise", self.simulator.noise)
+        self.summaries = tf.summary.merge_all()
+
     def __call__(self, state, timestep):
 
         with tf.Session(graph=self.graph) as sess:
-            sess.run(tf.global_variables_initializer())
+
+            logdir = os.path.join(self.logdir, f"timestep={timestep}")
+            self.train_writer = tf.summary.FileWriter(logdir)
+
+            tf.global_variables_initializer().run()
 
             feed_dict = {
                 self.initial_state: self._get_batch_initial_state(state),
@@ -120,11 +141,20 @@ class StraightLinePlanner(Planner):
 
             epochs = self.config["epochs"]
             with trange(epochs) as t:
-                for _ in t:
-                    _, loss_, avg_total_reward_ = sess.run(
-                        [self.train_op, self.loss, self.avg_total_reward],
+
+                for step in t:
+                    _, loss_, avg_total_reward_, summary_ = sess.run(
+                        [
+                            self.train_op,
+                            self.loss,
+                            self.avg_total_reward,
+                            self.summaries,
+                        ],
                         feed_dict=feed_dict,
                     )
+
+                    self.train_writer.add_summary(summary_, step)
+
                     t.set_description(f"Timestep {timestep}")
                     t.set_postfix(
                         loss=f"{loss_:10.4f}",
