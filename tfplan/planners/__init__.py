@@ -19,3 +19,4 @@
 from tfplan.planners.deterministic.tensorplan import Tensorplan
 from tfplan.planners.planner import DEFAULT_CONFIG, Planner
 from tfplan.planners.stochastic.straightline import StraightLinePlanner
+from tfplan.planners.stochastic.hindsight import HindsightPlanner

@@ -21,8 +21,8 @@ import pytest
 import tensorflow as tf
 
 import rddlgym
-
-from tfplan.planners import DEFAULT_CONFIG, StraightLinePlanner
+from tfplan.planners import DEFAULT_CONFIG, HindsightPlanner
+from tfplan.planners.stochastic import utils
 
 
 BATCH_SIZE = 16
@@ -37,17 +37,24 @@ def planner(request):
         **DEFAULT_CONFIG,
         **{"batch_size": BATCH_SIZE, "horizon": HORIZON, "epochs": EPOCHS},
     }
-    planner_ = StraightLinePlanner(rddl, config)
-    planner_.build()
-    return planner_
+    planner = HindsightPlanner(rddl, config)
+    planner.build()
+    return planner
 
 
-def test_build_policy_ops(planner):
-    policy = planner.policy
+def test_build_base_policy_ops(planner):
+    base_policy = planner.base_policy
+    assert not base_policy.parallel_plans
+    assert base_policy.horizon == 1
+    assert hasattr(base_policy, "_policy_variables")
+
+
+def test_build_scenario_policy_ops(planner):
+    scenario_policy = planner.scenario_policy
     compiler = planner.compiler
-    assert not policy.parallel_plans
-    assert policy.horizon == compiler.rddl.instance.horizon
-    assert hasattr(policy, "_policy_variables")
+    assert scenario_policy.parallel_plans
+    assert scenario_policy.horizon == compiler.rddl.instance.horizon - 1
+    assert hasattr(scenario_policy, "_policy_variables")
 
 
 def test_build_initial_state_ops(planner):
@@ -59,6 +66,16 @@ def test_build_initial_state_ops(planner):
     for tensor, fluent in zip(initial_state, compiler.initial_state_fluents):
         assert tensor.dtype == fluent[1].dtype
         assert tensor.shape == (batch_size, *fluent[1].shape.fluent_shape)
+
+
+def test_build_scenario_start_states_ops(planner):
+    initial_state = planner.initial_state
+    next_state = planner.next_state
+    assert isinstance(next_state, tuple)
+    assert len(next_state) == len(initial_state)
+    for initial_state_tensor, next_state_tensor in zip(initial_state, next_state):
+        assert initial_state_tensor.shape == next_state_tensor.shape
+        assert initial_state_tensor.dtype == next_state_tensor.dtype
 
 
 def test_build_sequence_length_ops(planner):
@@ -75,7 +92,7 @@ def test_build_trajectory_ops(planner):
     actions = trajectory.actions
 
     batch_size = planner.compiler.batch_size
-    horizon = planner.compiler.rddl.instance.horizon
+    horizon = planner.compiler.rddl.instance.horizon - 1
     action_fluents = planner.compiler.default_action_fluents
 
     for action, action_fluent in zip(actions, action_fluents):
@@ -105,28 +122,30 @@ def test_get_batch_initial_state(planner):
             assert batch_fluent.shape[0] == planner.compiler.batch_size
 
 
-def test_get_noise_samples(planner):
-    # pylint: disable=protected-access
-    with tf.Session(graph=planner.compiler.graph) as sess:
-        samples_ = planner._get_noise_samples(sess)
-        assert planner.simulator.noise.dtype == samples_.dtype
-        assert planner.simulator.noise.shape.as_list() == list(samples_.shape)
-
-
 def test_get_action(planner):
     # pylint: disable=protected-access
     env = rddlgym.make(planner.rddl, mode=rddlgym.GYM)
 
     with tf.Session(graph=planner.compiler.graph) as sess:
         sess.run(tf.global_variables_initializer())
+
         state = env.observation_space.sample()
         batch_state = planner._get_batch_initial_state(state)
-        samples = planner._get_noise_samples(sess)
+
+        next_state_noise = utils.evaluate_noise_samples_as_inputs(
+            sess, planner.cell_samples
+        )
+        scenario_noise = utils.evaluate_noise_samples_as_inputs(
+            sess, planner.simulator.samples
+        )
+
         feed_dict = {
             planner.initial_state: batch_state,
-            planner.simulator.noise: samples,
-            planner.steps_to_go: HORIZON,
+            planner.cell_noise: next_state_noise,
+            planner.simulator.noise: scenario_noise,
+            planner.steps_to_go: HORIZON - 1,
         }
+
         actions_ = planner._get_action(sess, feed_dict)
         action_fluents = planner.compiler.default_action_fluents
         assert isinstance(actions_, OrderedDict)

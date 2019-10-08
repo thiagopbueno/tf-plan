@@ -103,5 +103,5 @@ def test_runner(planner):
     rddl = planner.rddl
     env = rddlgym.make(rddl, mode=rddlgym.GYM)
     runner = rddlgym.Runner(env, planner)
-    _, trajectory = runner.run()
+    trajectory = runner.run()
     assert len(trajectory) == env._horizon
