@@ -75,9 +75,13 @@ def cli(*args, **kwargs):
     """
     import rddlgym
 
-    from tfplan.planners import Tensorplan, StraightLinePlanner
+    from tfplan.planners import Tensorplan, StraightLinePlanner, HindsightPlanner
 
-    PLANNERS = {"tensorplan": Tensorplan, "straightline": StraightLinePlanner}
+    PLANNERS = {
+        "tensorplan": Tensorplan,
+        "straightline": StraightLinePlanner,
+        "hindsight": HindsightPlanner,
+    }
 
     Planner = PLANNERS[kwargs["planner"]]
 
