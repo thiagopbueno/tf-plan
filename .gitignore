@@ -1,6 +1,9 @@
 # mac OS
 .DS_Store
 
+# Experiments
+experiments/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
