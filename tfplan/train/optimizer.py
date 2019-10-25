@@ -51,6 +51,12 @@ class ActionOptimizer:
         learning_rate = self.config["learning_rate"]
         self.optimizer = tf_optimizer(learning_rate)
 
+    def compute_gradients(self, loss):
+        return self.optimizer.compute_gradients(loss)
+
+    def apply_gradients(self, grads_and_vars):
+        return self.optimizer.apply_gradients(grads_and_vars)
+
     def minimize(self, loss):
         """Returns the train op corresponding to the loss minimization."""
         return self.optimizer.minimize(loss)

@@ -18,6 +18,7 @@
 
 from collections import OrderedDict
 import pytest
+import numpy as np
 import tensorflow as tf
 
 import rddlgym
@@ -90,14 +91,55 @@ def test_build_sequence_length_ops(planner):
 def test_build_trajectory_ops(planner):
     trajectory = planner.trajectory
     actions = trajectory.actions
+    rewards = trajectory.rewards
+    assert rewards.shape == (BATCH_SIZE, HORIZON - 1, 1)
 
-    batch_size = planner.compiler.batch_size
-    horizon = planner.compiler.rddl.instance.horizon - 1
     action_fluents = planner.compiler.default_action_fluents
-
     for action, action_fluent in zip(actions, action_fluents):
         size = action_fluent[1].shape.as_list()
-        assert action.shape.as_list() == [batch_size, horizon, *size]
+        assert action.shape.as_list() == [BATCH_SIZE, HORIZON - 1, *size]
+
+    with planner.graph.as_default():
+        last_reward = tf.reduce_mean(planner.trajectory.rewards[:, -1, 0])
+        base_policy_vars = tf.trainable_variables(scope="base_policy")
+        base_policy_grads = tf.gradients(last_reward, base_policy_vars)
+
+        base_policy_grads_ = _session_run(planner, base_policy_grads)
+        for grad_ in base_policy_grads_:
+            assert grad_ is not None
+            assert not np.allclose(grad_, np.zeros_like(grad_))
+
+        reward = tf.reduce_mean(planner.reward)
+        base_policy_grads = tf.gradients(reward, base_policy_vars)
+        assert all(grad is None for grad in base_policy_grads)
+
+
+def test_loss_ops(planner):
+    reward = planner.reward
+    scenario_total_reward = planner.scenario_total_reward
+
+    assert reward.shape == (BATCH_SIZE,)
+    assert scenario_total_reward.shape == (BATCH_SIZE,)
+
+
+def test_optimization_ops(planner):
+
+    with planner.graph.as_default():
+
+        grads_and_vars = planner.grads_and_vars
+        assert isinstance(grads_and_vars, list)
+        assert len(grads_and_vars) == len(tf.trainable_variables())
+
+        for variable in tf.trainable_variables(scope="base_policy"):
+            assert variable.shape[:2] == [1, 1]
+
+        for variable in tf.trainable_variables(scope="scenario_policy"):
+            assert variable.shape[:2] == [BATCH_SIZE, HORIZON - 1]
+
+    grads_and_vars_ = _session_run(planner, grads_and_vars)
+    for grad_, _ in grads_and_vars_:
+        assert grad_ is not None
+        assert not np.allclose(grad_, np.zeros_like(grad_))
 
 
 def test_call(planner):
@@ -128,25 +170,10 @@ def test_get_action(planner):
 
     with tf.Session(graph=planner.compiler.graph) as sess:
         sess.run(tf.global_variables_initializer())
-
-        state = env.observation_space.sample()
-        batch_state = planner._get_batch_initial_state(state)
-
-        next_state_noise = utils.evaluate_noise_samples_as_inputs(
-            sess, planner.cell_samples
-        )
-        scenario_noise = utils.evaluate_noise_samples_as_inputs(
-            sess, planner.simulator.samples
-        )
-
-        feed_dict = {
-            planner.initial_state: batch_state,
-            planner.cell_noise: next_state_noise,
-            planner.simulator.noise: scenario_noise,
-            planner.steps_to_go: HORIZON - 1,
-        }
+        feed_dict = _get_feed_dict(sess, planner, env)
 
         actions_ = planner._get_action(sess, feed_dict)
+
         action_fluents = planner.compiler.default_action_fluents
         assert isinstance(actions_, OrderedDict)
         assert len(actions_) == len(action_fluents)
@@ -163,3 +190,33 @@ def test_runner(planner):
     runner = rddlgym.Runner(env, planner)
     trajectory = runner.run()
     assert len(trajectory) == env._horizon
+
+
+def _session_run(planner, fetches):
+    env = rddlgym.make(planner.rddl, mode=rddlgym.GYM)
+
+    with tf.Session(graph=planner.compiler.graph) as sess:
+        sess.run(tf.global_variables_initializer())
+        feed_dict = _get_feed_dict(sess, planner, env)
+        return sess.run(fetches, feed_dict=feed_dict)
+
+
+def _get_feed_dict(sess, planner, env):
+    # pylint: disable=protected-access
+    state = env.observation_space.sample()
+    batch_state = planner._get_batch_initial_state(state)
+
+    next_state_noise = utils.evaluate_noise_samples_as_inputs(
+        sess, planner.cell_samples
+    )
+    scenario_noise = utils.evaluate_noise_samples_as_inputs(
+        sess, planner.simulator.samples
+    )
+
+    feed_dict = {
+        planner.initial_state: batch_state,
+        planner.cell_noise: next_state_noise,
+        planner.simulator.noise: scenario_noise,
+        planner.steps_to_go: HORIZON - 1,
+    }
+    return feed_dict
