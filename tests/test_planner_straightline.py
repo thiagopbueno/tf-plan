@@ -36,6 +36,7 @@ def planner(request):
     config = {
         **DEFAULT_CONFIG,
         **{"batch_size": BATCH_SIZE, "horizon": HORIZON, "epochs": EPOCHS},
+        "verbose": False,
     }
     planner_ = StraightLinePlanner(rddl, config)
     planner_.build()

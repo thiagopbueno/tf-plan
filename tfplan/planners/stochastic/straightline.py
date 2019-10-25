@@ -64,6 +64,7 @@ class StraightLinePlanner(Planner):
         self.loss = None
 
         self.optimizer = None
+        self.grads_and_vars = None
         self.train_op = None
 
         self.train_writer = None
@@ -89,22 +90,25 @@ class StraightLinePlanner(Planner):
         self.policy.build("planning")
 
     def _build_initial_state_ops(self):
-        self.initial_state = tuple(
-            tf.placeholder(t.dtype, t.shape) for t in self.compiler.initial_state()
-        )
+        with tf.name_scope("initial_state"):
+            self.initial_state = tuple(
+                tf.placeholder(t.dtype, t.shape) for t in self.compiler.initial_state()
+            )
 
     def _build_sequence_length_ops(self):
-        self.steps_to_go = tf.placeholder(tf.int32, shape=())
-        self.sequence_length = tf.tile(
-            tf.reshape(self.steps_to_go, [1]), [self.compiler.batch_size]
-        )
+        with tf.name_scope("sequence_length"):
+            self.steps_to_go = tf.placeholder(tf.int32, shape=())
+            self.sequence_length = tf.tile(
+                tf.reshape(self.steps_to_go, [1]), [self.compiler.batch_size]
+            )
 
     def _build_trajectory_ops(self):
-        self.simulator = Simulator(self.compiler, self.policy, config=None)
-        self.simulator.build()
-        self.trajectory, self.final_state, self.total_reward = self.simulator.trajectory(
-            self.initial_state, self.sequence_length
-        )
+        with tf.name_scope("scenarios"):
+            self.simulator = Simulator(self.compiler, self.policy, config=None)
+            self.simulator.build()
+            self.trajectory, self.final_state, self.total_reward = self.simulator.trajectory(
+                self.initial_state, self.sequence_length
+            )
 
     def _build_loss_ops(self):
         with tf.name_scope("loss"):
@@ -112,21 +116,26 @@ class StraightLinePlanner(Planner):
             self.loss = tf.square(self.avg_total_reward)
 
     def _build_optimization_ops(self):
-        self.optimizer = ActionOptimizer(self.config["optimization"])
-        self.optimizer.build()
-        self.train_op = self.optimizer.minimize(self.loss)
+        with tf.name_scope("optimization"):
+            self.optimizer = ActionOptimizer(self.config["optimization"])
+            self.optimizer.build()
+            self.grads_and_vars = self.optimizer.compute_gradients(self.loss)
+            self.train_op = self.optimizer.apply_gradients(self.grads_and_vars)
 
     def _build_summary_ops(self):
-        _ = tf.summary.FileWriter(self.logdir, self.graph)
-        tf.summary.histogram("total_reward", self.total_reward)
-        tf.summary.scalar("avg_total_reward", self.avg_total_reward)
-        tf.summary.scalar("loss", self.loss)
-        tf.summary.histogram("scenario_noise", self.simulator.noise)
-        self.summaries = tf.summary.merge_all()
+        with tf.name_scope("summary"):
+            _ = tf.summary.FileWriter(self.logdir, self.graph)
+            tf.summary.histogram("total_reward", self.total_reward)
+            tf.summary.scalar("avg_total_reward", self.avg_total_reward)
+            tf.summary.scalar("loss", self.loss)
+            tf.summary.histogram("scenario_noise", self.simulator.noise)
+            self.summaries = tf.summary.merge_all()
 
     def __call__(self, state, timestep):
+        # pylint: disable=too-many-locals
+        config = tf.ConfigProto(log_device_placement=self.config["verbose"])
 
-        with tf.Session(graph=self.graph) as sess:
+        with tf.Session(config=config, graph=self.graph) as sess:
 
             logdir = os.path.join(self.logdir, f"timestep={timestep}")
             self.train_writer = tf.summary.FileWriter(logdir)
