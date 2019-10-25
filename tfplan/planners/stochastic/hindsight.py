@@ -71,6 +71,7 @@ class HindsightPlanner(Planner):
         self.loss = None
 
         self.optimizer = None
+        self.grads_and_vars = None
         self.train_op = None
 
         self.train_writer = None
@@ -105,44 +106,49 @@ class HindsightPlanner(Planner):
         self.scenario_policy.build("scenario_policy")
 
     def _build_initial_state_ops(self):
-        self.initial_state = tuple(
-            tf.placeholder(t.dtype, t.shape) for t in self.compiler.initial_state()
-        )
+        with tf.name_scope("initial_state"):
+            self.initial_state = tuple(
+                tf.placeholder(t.dtype, t.shape) for t in self.compiler.initial_state()
+            )
 
     def _build_scenario_start_states_ops(self):
-        with tf.name_scope("reparameterization"):
-            reparameterization_map = self.compiler.get_cpfs_reparameterization()
-            self.cell_samples = utils.get_noise_samples(
-                reparameterization_map, self.batch_size, horizon=1
+        with tf.name_scope("current_action"):
+
+            with tf.name_scope("reparameterization"):
+                reparameterization_map = self.compiler.get_cpfs_reparameterization()
+                self.cell_samples = utils.get_noise_samples(
+                    reparameterization_map, self.batch_size, horizon=1
+                )
+                self.cell_noise, encoding = utils.encode_noise_samples_as_inputs(
+                    self.cell_samples
+                )
+
+            self.cell = SimulationCell(
+                self.compiler, self.base_policy, config={"encoding": encoding}
             )
-            self.cell_noise, encoding = utils.encode_noise_samples_as_inputs(
-                self.cell_samples
-            )
 
-        self.cell = SimulationCell(
-            self.compiler, self.base_policy, config={"encoding": encoding}
-        )
+            timesteps = tf.zeros((self.batch_size, 1), dtype=tf.float32)
 
-        timesteps = tf.zeros((self.batch_size, 1), dtype=tf.float32)
+            inputs = tf.concat([timesteps, self.cell_noise[:, 0, ...]], axis=1)
+            output, self.next_state = self.cell(inputs, self.initial_state)
 
-        inputs = tf.concat([timesteps, self.cell_noise[:, 0, ...]], axis=1)
-        output, self.next_state = self.cell(inputs, self.initial_state)
-
-        self.action = output[1]
-        self.reward = tf.squeeze(output[3])
+            self.action = output[1]
+            self.reward = tf.squeeze(output[3])
 
     def _build_sequence_length_ops(self):
-        self.steps_to_go = tf.placeholder(tf.int32, shape=())
-        self.sequence_length = tf.tile(
-            tf.reshape(self.steps_to_go, [1]), [self.batch_size]
-        )
+        with tf.name_scope("sequence_length"):
+            self.steps_to_go = tf.placeholder(tf.int32, shape=())
+            self.sequence_length = tf.tile(
+                tf.reshape(self.steps_to_go, [1]), [self.batch_size]
+            )
 
     def _build_trajectory_ops(self):
-        self.simulator = Simulator(self.compiler, self.scenario_policy, config=None)
-        self.simulator.build()
-        self.trajectory, self.final_state, self.scenario_total_reward = self.simulator.trajectory(
-            self.next_state, self.sequence_length
-        )
+        with tf.name_scope("scenarios"):
+            self.simulator = Simulator(self.compiler, self.scenario_policy, config=None)
+            self.simulator.build()
+            self.trajectory, self.final_state, self.scenario_total_reward = self.simulator.trajectory(
+                self.next_state, self.sequence_length
+            )
 
     def _build_loss_ops(self):
         with tf.name_scope("loss"):
@@ -151,20 +157,23 @@ class HindsightPlanner(Planner):
             self.loss = tf.square(self.avg_total_reward)
 
     def _build_optimization_ops(self):
-        self.optimizer = ActionOptimizer(self.config["optimization"])
-        self.optimizer.build()
-        self.train_op = self.optimizer.minimize(self.loss)
+        with tf.name_scope("optimization"):
+            self.optimizer = ActionOptimizer(self.config["optimization"])
+            self.optimizer.build()
+            self.grads_and_vars = self.optimizer.compute_gradients(self.loss)
+            self.train_op = self.optimizer.apply_gradients(self.grads_and_vars)
 
     def _build_summary_ops(self):
-        _ = tf.summary.FileWriter(self.logdir, self.graph)
-        tf.summary.histogram("reward", self.reward)
-        tf.summary.histogram("scenario_total_reward", self.scenario_total_reward)
-        tf.summary.histogram("total_reward", self.total_reward)
-        tf.summary.scalar("avg_total_reward", self.avg_total_reward)
-        tf.summary.scalar("loss", self.loss)
-        tf.summary.histogram("next_state_noise", self.cell_noise)
-        tf.summary.histogram("scenario_noise", self.simulator.noise)
-        self.summaries = tf.summary.merge_all()
+        with tf.name_scope("summary"):
+            _ = tf.summary.FileWriter(self.logdir, self.graph)
+            tf.summary.histogram("reward", self.reward)
+            tf.summary.histogram("scenario_total_reward", self.scenario_total_reward)
+            tf.summary.histogram("total_reward", self.total_reward)
+            tf.summary.scalar("avg_total_reward", self.avg_total_reward)
+            tf.summary.scalar("loss", self.loss)
+            tf.summary.histogram("next_state_noise", self.cell_noise)
+            tf.summary.histogram("scenario_noise", self.simulator.noise)
+            self.summaries = tf.summary.merge_all()
 
     def __call__(self, state, timestep):
         # pylint: disable=too-many-locals
