@@ -37,6 +37,7 @@ def planner(request):
     config = {
         **DEFAULT_CONFIG,
         **{"batch_size": BATCH_SIZE, "horizon": HORIZON, "epochs": EPOCHS},
+        "verbose": False,
     }
     planner = HindsightPlanner(rddl, config)
     planner.build()
