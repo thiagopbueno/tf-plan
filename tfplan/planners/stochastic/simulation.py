@@ -14,69 +14,55 @@
 # along with tf-plan. If not, see <http://www.gnu.org/licenses/>.
 
 
-import collections
+# pylint: disable=missing-docstring
+
+
+from collections import namedtuple
 import tensorflow as tf
-from typing import Any, Dict, Optional, Sequence, Tuple, Union
 
-from rddl2tf import ReparameterizationCompiler
-from rddl2tf.core.fluent import TensorFluent
-
-from tfplan.train.policy import OpenLoopPolicy
 from tfplan.planners.stochastic import utils
 
 
-Shape = Sequence[int]
-FluentPair = Tuple[str, TensorFluent]
-
-NonFluentsTensor = Sequence[tf.Tensor]
-StateTensor = Sequence[tf.Tensor]
-StatesTensor = Sequence[tf.Tensor]
-ActionsTensor = Sequence[tf.Tensor]
-IntermsTensor = Sequence[tf.Tensor]
-RewardTensor = tf.Tensor
-
-CellOutput = Tuple[StatesTensor, ActionsTensor, IntermsTensor, tf.Tensor]
-CellState = Sequence[tf.Tensor]
-
-Trajectory = collections.namedtuple("Trajectory", "states actions interms rewards")
+Trajectory = namedtuple("Trajectory", "states actions interms rewards")
 
 
 class SimulationCell(tf.nn.rnn_cell.RNNCell):
-    def __init__(
-        self,
-        compiler: ReparameterizationCompiler,
-        policy: OpenLoopPolicy,
-        config: Optional[Dict] = None,
-    ):
+    """
+    SimulationCell class implements an RNN cell that simulates the
+    next state and reward for the MDP transition given by the RDDL model.
+
+    Args:
+        compiler (rddl2tf.compilers.ReparameterizationCompiler): The RDDL2TF compiler.
+        policy (tfplan.train.OpenLoopPolicy): The state-independent policy (e.g., a plan).
+        config (Dict[str, Any]): A config dict.
+    """
+
+    def __init__(self, compiler, policy, config=None):
         self.compiler = compiler
         self.policy = policy
         self.config = config
 
     @property
-    def state_size(self) -> Sequence[Shape]:
+    def state_size(self):
         """Returns the MDP state size."""
         return utils.cell_size(self.compiler.rddl.state_size)
 
     @property
-    def action_size(self) -> Sequence[Shape]:
+    def action_size(self):
         """Returns the MDP action size."""
         return utils.cell_size(self.compiler.rddl.action_size)
 
     @property
-    def interm_size(self) -> Sequence[Shape]:
+    def interm_size(self):
         """Returns the MDP intermediate state size."""
         return utils.cell_size(self.compiler.rddl.interm_size)
 
     @property
-    def output_size(
-        self
-    ) -> Tuple[Sequence[Shape], Sequence[Shape], Sequence[Shape], int]:
+    def output_size(self):
         """Returns the simulation cell output size."""
         return (self.state_size, self.action_size, self.interm_size, 1)
 
-    def __call__(
-        self, inputs: tf.Tensor, state: Sequence[tf.Tensor], scope: Optional[str] = None
-    ) -> Tuple[CellOutput, CellState]:
+    def __call__(self, inputs, state, scope=None):
         """Returns the cell's output tuple and next state tensors.
 
         Output tuple packs together the next state, action, interms,
@@ -112,42 +98,54 @@ class SimulationCell(tf.nn.rnn_cell.RNNCell):
         next_state = utils.to_tensor(next_state)
         action = tuple((tensor,) for tensor in action)
         interm = utils.to_tensor(interm)
-        output = (next_state, action, interm, reward)
+        output = next_state, action, interm, reward
 
         next_state = tuple(tensor[0] for tensor in next_state)
 
         return (output, next_state)
 
 
-class Simulator(object):
-    def __init__(
-        self,
-        compiler: ReparameterizationCompiler,
-        policy: OpenLoopPolicy,
-        config: Dict[str, Any],
-    ) -> None:
+class Simulator:
+    """
+    Simulator class implements an RNN-based trajctory simulator
+    for the RDDL model.
+
+    Args:
+        compiler (rddl2tf.compilers.DefaulCompiler): The RDDL2TF compiler.
+        policy (tfplan.train.OpenLoopPolicy): The state-independent policy (e.g., a plan).
+        config (Dict[str, Any]): A config dict.
+    """
+
+    # pylint: disable=too-many-instance-attributes
+
+    def __init__(self, compiler, policy, config):
         self.compiler = compiler
         self.policy = policy
         self.config = config
 
+        self.reparameterization_map = None
+        self.samples = None
+        self.noise = None
+        self.cell = None
+        self.inputs = None
+
     @property
     def graph(self):
+        """Returns the compiler's graph."""
         return self.compiler.graph
 
     @property
     def batch_size(self):
+        """Returns the policy's batch size."""
         return self.policy.batch_size
 
     @property
     def horizon(self):
+        """Returns the policy's batch size."""
         return self.policy.horizon
 
-    def build(self) -> None:
-        """Builds the recurrent cell ops by embedding the `policy` in the transition sampling.
-
-        Args:
-            policy (:obj:`OpenLoopPolicy`): A deep reactive policy.
-        """
+    def build(self):
+        """Builds the reparametrized recurrent cell."""
         with self.graph.as_default():
             with tf.name_scope("reparameterization"):
                 self.reparameterization_map = (
@@ -164,14 +162,25 @@ class Simulator(object):
             self.compiler, self.policy, config={"encoding": encoding}
         )
 
-    def trajectory(
-        self, initial_state: StateTensor, sequence_length=None
-    ) -> Tuple[Trajectory, StateTensor, RewardTensor]:
+    def trajectory(self, initial_state, sequence_length=None):
+        """Returns the state-action-reward trajectory induced by
+        the given `initial_state` and policy.
+
+        Args:
+            initial_state (Sequence[tf.Tensor]): The trajectory's initial state.
+            sequence_length (tf.Tensor(shape=(batch_size,))): An integer vector
+            defining the trajectories' number of timesteps.
+
+        Returns:
+            trajectory: The collection of states-actions-interms-rewards trajectory.
+            final_state (Sequence[tf.Tensor]): The trajectory's final state.
+            total_reward (tf.Tensor(shape=(batch_size,))): The trajectory's total reward.
+        """
         with self.graph.as_default():
 
             with tf.name_scope("inputs"):
-                self.timesteps = Simulator.timesteps(self.batch_size, self.horizon)
-                self.inputs = tf.concat([self.timesteps, self.noise], axis=2)
+                timesteps = Simulator.timesteps(self.batch_size, self.horizon)
+                self.inputs = tf.concat([timesteps, self.noise], axis=2)
 
             with tf.name_scope("trajectory"):
                 outputs, final_state = tf.nn.dynamic_rnn(
@@ -194,6 +203,7 @@ class Simulator(object):
         return trajectory, final_state, total_reward
 
     def run(self, trajectory):
+        """Evaluates the given `trajectory`."""
         with tf.Session(graph=self.graph) as sess:
             sess.run(tf.global_variables_initializer())
 
@@ -202,7 +212,8 @@ class Simulator(object):
             return sess.run(trajectory, feed_dict=feed_dict)
 
     @classmethod
-    def timesteps(cls, batch_size: int, horizon: int) -> tf.Tensor:
+    def timesteps(cls, batch_size, horizon):
+        """Returns the batch-sized increasing-horizon timesteps tensor."""
         with tf.name_scope("timesteps"):
             start, limit = 0, horizon
             timesteps_range = tf.range(start, limit, dtype=tf.float32)

@@ -123,7 +123,7 @@ class Simulator:
 
     @property
     def horizon(self):
-        """Returns the policy's horizon."""
+        """Returns the policy's batch size."""
         return self.policy.horizon
 
     def build(self):
