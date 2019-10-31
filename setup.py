@@ -52,7 +52,6 @@ setup(
         "tfrddlsim>=0.7.0",
         "tensorflow",
         "tensorflow-tensorboard",
-        "typing",
     ],
     include_package_data=True,
     zip_safe=False,
