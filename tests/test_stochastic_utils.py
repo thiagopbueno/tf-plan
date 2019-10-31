@@ -36,7 +36,7 @@ Reparameterization = namedtuple(
 )
 
 
-@pytest.fixture(scope="module", params=["Navigation-v2"])
+@pytest.fixture(scope="module", params=["Navigation-v3", "Reservoir-8", "HVAC-3"])
 def reparameterization(request):
     rddl = request.param
     model = rddlgym.make(rddl, mode=rddlgym.AST)
@@ -70,6 +70,8 @@ def test_get_noise_samples(reparameterization):
 
         for (_, shape), xi_noise in zip(noise[1], sample[1]):
             assert isinstance(xi_noise, tf.Tensor)
+            if shape == []:
+                shape = xi_noise.shape.as_list()[-1:]
             assert list(xi_noise.shape) == [BATCH_SIZE, HORIZON] + shape
 
 
@@ -97,7 +99,7 @@ def test_encode_noise_samples_as_inputs(reparameterization):
             assert slice_shape == sample_shape[2:]
             assert start == i
             assert end == i + (end - start)
-            assert end == np.prod(slice_shape) - 1
+            assert end == i + np.prod(slice_shape) - 1
 
             i += end - start + 1
 
