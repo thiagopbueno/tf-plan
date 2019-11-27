@@ -99,6 +99,8 @@ def cli(*args, **kwargs):
     import functools
     import multiprocessing
 
+    import numpy as np
+    import pandas as pd
     from tqdm import tqdm
 
     config = kwargs
@@ -117,10 +119,19 @@ def cli(*args, **kwargs):
     pool.close()
     pool.join()
 
-    for i, (pid, uptime, stats) in enumerate(trajectories):
-        print(f"===== Run #{i} / pid={pid} ({uptime:.4f} sec) =====")
-        print(stats)
-        print()
+    avg_uptime = np.mean([uptime for _, uptime, _ in trajectories])
+    stddev_uptime = np.std([uptime for _, uptime, _ in trajectories])
+    results = pd.concat([stats for _, _, stats in trajectories])
+    results = results.groupby(results.index, sort=False).mean()
+    print(f"===== Average ===== ({avg_uptime:.4f} ± {stddev_uptime:.4f} sec)")
+    print(results)
+    print()
+
+    if kwargs["verbose"]:
+        for i, (pid, uptime, stats) in enumerate(trajectories):
+            print(f"===== Run #{i} / pid={pid} ({uptime:.4f} sec) =====")
+            print(stats)
+            print()
 
 
 def run(config, n):
