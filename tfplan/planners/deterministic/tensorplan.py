@@ -17,6 +17,8 @@
 
 
 from collections import OrderedDict
+import os
+
 import tensorflow as tf
 from tqdm import trange
 
@@ -63,6 +65,12 @@ class Tensorplan(Planner):
 
         self.writer = None
         self.summaries = None
+
+        self.config_proto = tf.ConfigProto(
+            inter_op_parallelism_threads=1,
+            intra_op_parallelism_threads=1,
+            log_device_placement=False,
+        )
 
     @property
     def logdir(self):
@@ -122,14 +130,21 @@ class Tensorplan(Planner):
         Returns:
             plan (Sequence(np.ndarray): The best solution plan.
         """
-        with tf.Session(graph=self.graph) as sess:
+        with tf.Session(graph=self.graph, config=self.config_proto) as sess:
 
             self.writer = tf.compat.v1.summary.FileWriter(self.logdir, self.graph)
 
             tf.global_variables_initializer().run()
 
+            run_id = self.config.get("run_id", 0)
+            pid = os.getpid()
+            position = run_id % self.config.get("num_workers", 1)
             epochs = self.config["epochs"]
-            with trange(epochs, desc="Training", unit="epoch") as t:
+            desc = f"Training #{run_id:3d} (pid={pid})"
+
+            with trange(
+                epochs, desc=desc, unit="epoch", position=position, leave=False
+            ) as t:
 
                 for step in t:
                     _, loss_, avg_total_reward_, summary_ = sess.run(

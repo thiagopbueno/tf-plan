@@ -20,6 +20,7 @@
 
 
 import click
+import psutil
 
 
 @click.command()
@@ -64,7 +65,26 @@ import click
     show_default=True,
 )
 @click.option(
-    "--logdir", type=click.Path(), help="Directory used for logging training summaries."
+    "--num-samples",
+    "-n",
+    type=int,
+    default=1,
+    help="Number of runs.",
+    show_default=True,
+)
+@click.option(
+    "--num-workers",
+    type=click.IntRange(min=1, max=psutil.cpu_count()),
+    default=1,
+    help=f"Number of worker processes (min=1, max={psutil.cpu_count()}).",
+    show_default=True,
+)
+@click.option(
+    "--logdir",
+    type=click.Path(),
+    default="/tmp/tfplan/",
+    help="Directory used for logging training summaries.",
+    show_default=True,
 )
 @click.option("-v", "--verbose", is_flag=True, help="Verbosity flag.")
 @click.version_option()
@@ -76,33 +96,71 @@ def cli(*args, **kwargs):
     Args:
         RDDL Filename or rddlgym domain/instance id.
     """
-    import rddlgym
+    import functools
+    import multiprocessing
 
-    from tfplan.planners import Tensorplan, StraightLinePlanner, HindsightPlanner
-
-    PLANNERS = {
-        "tensorplan": Tensorplan,
-        "straightline": StraightLinePlanner,
-        "hindsight": HindsightPlanner,
-    }
-
-    Planner = PLANNERS[kwargs["planner"]]
-
-    rddl = kwargs["rddl"]
-    env = rddlgym.make(rddl, mode=rddlgym.GYM)
-    env.set_horizon(kwargs["horizon"])
+    from tqdm import tqdm
 
     config = kwargs
     config["optimization"] = {
-        "optimizer": kwargs["optimizer"],
-        "learning_rate": kwargs["learning_rate"],
+        "optimizer": config["optimizer"],
+        "learning_rate": config["learning_rate"],
     }
 
-    planner = Planner(rddl, config)
+    n_samples = kwargs["num_samples"]
+    num_workers = kwargs["num_workers"]
 
-    debug = kwargs["verbose"]
+    pool = multiprocessing.Pool(
+        processes=num_workers, initializer=tqdm.set_lock, initargs=(tqdm.get_lock(),)
+    )
+    trajectories = pool.map(functools.partial(run, config), range(n_samples))
+    pool.close()
+    pool.join()
+
+    for i, (pid, uptime, stats) in enumerate(trajectories):
+        print(f"===== Run #{i} / pid={pid} ({uptime:.4f} sec) =====")
+        print(stats)
+        print()
+
+
+def run(config, n):
+    import os
+    import time
+
+    os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+    os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
+    os.environ["OMP_NUM_THREADS"] = str(psutil.cpu_count(logical=False))
+
+    import rddlgym
+    import tfplan
+
+    import tensorflow as tf
+
+    tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
+
+    config["run_id"] = n
+
+    planner = config["planner"]
+    rddl = config["rddl"]
+    horizon = config["horizon"]
+    debug = config["verbose"]
+
+    filepath = os.path.join(config["logdir"], f"run{n}/data.csv")
+
+    start = time.time()
+
+    env = rddlgym.make(rddl, mode=rddlgym.GYM, config=config)
+    env.set_horizon(horizon)
+
+    planner = tfplan.make(planner, rddl, config)
 
     with rddlgym.Runner(env, planner, debug=debug) as runner:
         trajectory = runner.run()
+        df = trajectory.save(filepath)
+        stats = df.describe()
 
-    click.echo(f"tensorboard --logdir {planner.logdir}")
+    uptime = time.time() - start
+
+    pid = os.getpid()
+
+    return pid, uptime, stats
