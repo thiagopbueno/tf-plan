@@ -19,7 +19,7 @@
 import os
 from setuptools import setup, find_packages
 
-import tfplan
+import tfplan.version
 
 
 def read(filename):
@@ -30,7 +30,7 @@ def read(filename):
 
 setup(
     name="tf-plan",
-    version=tfplan.__version__,
+    version=tfplan.version.__version__,
     author="Thiago P. Bueno",
     author_email="thiago.pbueno@gmail.com",
     description="Planning through backpropagation using TensorFlow.",
