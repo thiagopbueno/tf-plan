@@ -66,11 +66,7 @@ class Tensorplan(Planner):
         self.writer = None
         self.summaries = None
 
-        self.config_proto = tf.ConfigProto(
-            inter_op_parallelism_threads=1,
-            intra_op_parallelism_threads=1,
-            log_device_placement=False,
-        )
+        self._sess = None
 
     @property
     def logdir(self):
@@ -130,41 +126,45 @@ class Tensorplan(Planner):
         Returns:
             plan (Sequence(np.ndarray): The best solution plan.
         """
-        with tf.Session(graph=self.graph, config=self.config_proto) as sess:
 
-            self.writer = tf.compat.v1.summary.FileWriter(self.logdir, self.graph)
+        if self._sess is None:
+            with self.graph.as_default():
+                self.init_op = tf.global_variables_initializer()
 
-            tf.global_variables_initializer().run()
+            config = tf.ConfigProto(
+                inter_op_parallelism_threads=1,
+                intra_op_parallelism_threads=1,
+                log_device_placement=False,
+            )
+            self._sess = tf.Session(graph=self.graph, config=config)
 
-            run_id = self.config.get("run_id", 0)
-            pid = os.getpid()
-            position = run_id % self.config.get("num_workers", 1)
-            epochs = self.config["epochs"]
-            desc = f"Training #{run_id:3d} (pid={pid})"
+        self.writer = tf.compat.v1.summary.FileWriter(self.logdir, self.graph)
 
-            with trange(
-                epochs, desc=desc, unit="epoch", position=position, leave=False
-            ) as t:
+        self._sess.run(self.init_op)
 
-                for step in t:
-                    _, loss_, avg_total_reward_, summary_ = sess.run(
-                        [
-                            self.train_op,
-                            self.loss,
-                            self.avg_total_reward,
-                            self.summaries,
-                        ]
-                    )
+        run_id = self.config.get("run_id", 0)
+        pid = os.getpid()
+        position = run_id % self.config.get("num_workers", 1)
+        epochs = self.config["epochs"]
+        desc = f"(pid={pid}) Run #{run_id:<3d}"
 
-                    self.writer.add_summary(summary_, step)
+        with trange(
+            epochs, desc=desc, unit="epoch", position=position, leave=False
+        ) as t:
 
-                    t.set_postfix(
-                        loss=f"{loss_:10.4f}",
-                        avg_total_reward=f"{avg_total_reward_:10.4f}",
-                    )
+            for step in t:
+                _, loss_, avg_total_reward_, summary_ = self._sess.run(
+                    [self.train_op, self.loss, self.avg_total_reward, self.summaries]
+                )
 
-            plan_ = sess.run(self.best_plan)
-            return plan_
+                self.writer.add_summary(summary_, step)
+
+                t.set_postfix(
+                    loss=f"{loss_:10.4f}", avg_total_reward=f"{avg_total_reward_:10.4f}"
+                )
+
+        plan_ = self._sess.run(self.best_plan)
+        return plan_
 
     def __call__(self, state, timestep):
         """Returns the action for the given `timestep`."""
@@ -181,3 +181,6 @@ class Tensorplan(Planner):
             }
         )
         return action
+
+    def close(self):
+        self._sess.close()

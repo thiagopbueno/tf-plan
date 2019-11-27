@@ -18,6 +18,7 @@
 
 from collections import OrderedDict
 import os
+
 import numpy as np
 import tensorflow as tf
 from tqdm import trange
@@ -67,8 +68,10 @@ class StraightLinePlanner(Planner):
         self.grads_and_vars = None
         self.train_op = None
 
-        self.train_writer = None
+        self.writer = None
         self.summaries = None
+
+        self._sess = None
 
     @property
     def logdir(self):
@@ -141,44 +144,52 @@ class StraightLinePlanner(Planner):
 
     def __call__(self, state, timestep):
         # pylint: disable=too-many-locals
-        config = tf.ConfigProto(log_device_placement=self.config["verbose"])
 
-        with tf.Session(config=config, graph=self.graph) as sess:
+        if self._sess is None:
+            with self.graph.as_default():
+                self.init_op = tf.global_variables_initializer()
 
-            logdir = os.path.join(self.logdir, f"timestep={timestep}")
-            self.train_writer = tf.compat.v1.summary.FileWriter(logdir)
+            config = tf.ConfigProto(
+                inter_op_parallelism_threads=1,
+                intra_op_parallelism_threads=1,
+                log_device_placement=False,
+            )
+            self._sess = tf.Session(graph=self.graph, config=config)
 
-            tf.global_variables_initializer().run()
+        logdir = os.path.join(self.logdir, f"timestep={timestep}")
+        self.writer = tf.compat.v1.summary.FileWriter(logdir)
 
-            feed_dict = {
-                self.initial_state: self._get_batch_initial_state(state),
-                self.simulator.noise: self._get_noise_samples(sess),
-                self.steps_to_go: self.config["horizon"] - timestep,
-            }
+        self._sess.run(self.init_op)
 
-            epochs = self.config["epochs"]
-            with trange(epochs) as t:
+        run_id = self.config.get("run_id", 0)
+        pid = os.getpid()
+        position = run_id % self.config.get("num_workers", 1)
+        epochs = self.config["epochs"]
+        desc = f"(pid={pid}) Run #{run_id:<3d} / step={timestep:<3d}"
 
-                for step in t:
-                    _, loss_, avg_total_reward_, summary_ = sess.run(
-                        [
-                            self.train_op,
-                            self.loss,
-                            self.avg_total_reward,
-                            self.summaries,
-                        ],
-                        feed_dict=feed_dict,
-                    )
+        feed_dict = {
+            self.initial_state: self._get_batch_initial_state(state),
+            self.simulator.noise: self._get_noise_samples(self._sess),
+            self.steps_to_go: self.config["horizon"] - timestep,
+        }
 
-                    self.train_writer.add_summary(summary_, step)
+        with trange(
+            epochs, unit="epoch", desc=desc, position=position, leave=False
+        ) as t:
 
-                    t.set_description(f"Timestep {timestep}")
-                    t.set_postfix(
-                        loss=f"{loss_:10.4f}",
-                        avg_total_reward=f"{avg_total_reward_:10.4f}",
-                    )
+            for step in t:
+                _, loss_, avg_total_reward_, summary_ = self._sess.run(
+                    [self.train_op, self.loss, self.avg_total_reward, self.summaries],
+                    feed_dict=feed_dict,
+                )
 
-            action = self._get_action(sess, feed_dict)
+                self.writer.add_summary(summary_, step)
+
+                t.set_postfix(
+                    loss=f"{loss_:10.4f}", avg_total_reward=f"{avg_total_reward_:10.4f}"
+                )
+
+        action = self._get_action(self._sess, feed_dict)
 
         return action
 
@@ -207,3 +218,6 @@ class StraightLinePlanner(Planner):
             }
         )
         return action
+
+    def close(self):
+        self._sess.close()

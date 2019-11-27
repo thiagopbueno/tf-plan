@@ -18,6 +18,7 @@
 
 from collections import OrderedDict
 import os
+
 import numpy as np
 import tensorflow as tf
 from tqdm import trange
@@ -74,8 +75,10 @@ class HindsightPlanner(Planner):
         self.grads_and_vars = None
         self.train_op = None
 
-        self.train_writer = None
+        self.writer = None
         self.summaries = None
+
+        self._sess = None
 
     @property
     def logdir(self):
@@ -188,52 +191,59 @@ class HindsightPlanner(Planner):
     def __call__(self, state, timestep):
         # pylint: disable=too-many-locals
 
-        config = tf.ConfigProto(log_device_placement=self.config["verbose"])
+        if self._sess is None:
+            with self.graph.as_default():
+                self.init_op = tf.global_variables_initializer()
 
-        with tf.Session(config=config, graph=self.graph) as sess:
-
-            logdir = os.path.join(self.logdir, f"timestep={timestep}")
-            self.train_writer = tf.compat.v1.summary.FileWriter(logdir)
-
-            tf.global_variables_initializer().run()
-
-            next_state_noise = utils.evaluate_noise_samples_as_inputs(
-                sess, self.cell_samples
+            config = tf.ConfigProto(
+                inter_op_parallelism_threads=1,
+                intra_op_parallelism_threads=1,
+                log_device_placement=False,
             )
-            scenario_noise = utils.evaluate_noise_samples_as_inputs(
-                sess, self.simulator.samples
-            )
+            self._sess = tf.Session(graph=self.graph, config=config)
 
-            feed_dict = {
-                self.initial_state: self._get_batch_initial_state(state),
-                self.cell_noise: next_state_noise,
-                self.simulator.noise: scenario_noise,
-                self.steps_to_go: self.config["horizon"] - timestep - 1,
-            }
+        logdir = os.path.join(self.logdir, f"timestep={timestep}")
+        self.writer = tf.compat.v1.summary.FileWriter(logdir)
 
-            epochs = self.config["epochs"]
-            with trange(epochs) as t:
+        self._sess.run(self.init_op)
 
-                for step in t:
-                    _, loss_, avg_total_reward_, summary_ = sess.run(
-                        [
-                            self.train_op,
-                            self.loss,
-                            self.avg_total_reward,
-                            self.summaries,
-                        ],
-                        feed_dict=feed_dict,
-                    )
+        next_state_noise = utils.evaluate_noise_samples_as_inputs(
+            self._sess, self.cell_samples
+        )
+        scenario_noise = utils.evaluate_noise_samples_as_inputs(
+            self._sess, self.simulator.samples
+        )
 
-                    self.train_writer.add_summary(summary_, step)
+        feed_dict = {
+            self.initial_state: self._get_batch_initial_state(state),
+            self.cell_noise: next_state_noise,
+            self.simulator.noise: scenario_noise,
+            self.steps_to_go: self.config["horizon"] - timestep - 1,
+        }
 
-                    t.set_description(f"Timestep {timestep}")
-                    t.set_postfix(
-                        loss=f"{loss_:10.4f}",
-                        avg_total_reward=f"{avg_total_reward_:10.4f}",
-                    )
+        run_id = self.config.get("run_id", 0)
+        pid = os.getpid()
+        position = run_id % self.config.get("num_workers", 1)
+        epochs = self.config["epochs"]
+        desc = f"(pid={pid}) Run #{run_id:<3d} / step={timestep:<3d}"
 
-            action = self._get_action(sess, feed_dict)
+        with trange(
+            epochs, desc=desc, unit="epoch", position=position, leave=False
+        ) as t:
+
+            for step in t:
+                _, loss_, avg_total_reward_, summary_ = self._sess.run(
+                    [self.train_op, self.loss, self.avg_total_reward, self.summaries],
+                    feed_dict=feed_dict,
+                )
+
+                self.writer.add_summary(summary_, step)
+
+                t.set_postfix(
+                    loss=f"{loss_:10.4f}", avg_total_reward=f"{avg_total_reward_:10.4f}"
+                )
+
+        action = self._get_action(self._sess, feed_dict)
 
         return action
 
@@ -258,3 +268,6 @@ class HindsightPlanner(Planner):
             }
         )
         return action
+
+    def close(self):
+        self._sess.close()
