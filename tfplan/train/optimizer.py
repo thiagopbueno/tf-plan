@@ -20,13 +20,13 @@ import tensorflow as tf
 
 
 OPTIMIZERS = {
-    "Adadelta": tf.train.AdadeltaOptimizer,
-    "Adagrad": tf.train.AdagradOptimizer,
-    "Adam": tf.train.AdamOptimizer,
-    "GradientDescent": tf.train.GradientDescentOptimizer,
-    "ProximalGradientDescent": tf.train.ProximalGradientDescentOptimizer,
-    "ProximalAdagrad": tf.train.ProximalAdagradOptimizer,
-    "RMSProp": tf.train.RMSPropOptimizer,
+    "Adadelta": tf.compat.v1.train.AdadeltaOptimizer,
+    "Adagrad": tf.compat.v1.train.AdagradOptimizer,
+    "Adam": tf.compat.v1.train.AdamOptimizer,
+    "GradientDescent": tf.compat.v1.train.GradientDescentOptimizer,
+    "ProximalGradientDescent": tf.compat.v1.train.ProximalGradientDescentOptimizer,
+    "ProximalAdagrad": tf.compat.v1.train.ProximalAdagradOptimizer,
+    "RMSProp": tf.compat.v1.train.RMSPropOptimizer,
 }
 
 

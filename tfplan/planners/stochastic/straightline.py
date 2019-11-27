@@ -124,20 +124,20 @@ class StraightLinePlanner(Planner):
 
     def _build_summary_ops(self):
         with tf.name_scope("summary"):
-            _ = tf.summary.FileWriter(self.logdir, self.graph)
-            tf.summary.scalar("avg_total_reward", self.avg_total_reward)
-            tf.summary.scalar("loss", self.loss)
+            _ = tf.compat.v1.summary.FileWriter(self.logdir, self.graph)
+            tf.compat.v1.summary.scalar("avg_total_reward", self.avg_total_reward)
+            tf.compat.v1.summary.scalar("loss", self.loss)
 
             if self.config["verbose"]:
-                tf.summary.histogram("total_reward", self.total_reward)
-                tf.summary.histogram("scenario_noise", self.simulator.noise)
+                tf.compat.v1.summary.histogram("total_reward", self.total_reward)
+                tf.compat.v1.summary.histogram("scenario_noise", self.simulator.noise)
 
                 for grad, variable in self.grads_and_vars:
                     var_name = variable.name
-                    tf.summary.histogram(f"{var_name}_grad", grad)
-                    tf.summary.histogram(var_name, variable)
+                    tf.compat.v1.summary.histogram(f"{var_name}_grad", grad)
+                    tf.compat.v1.summary.histogram(var_name, variable)
 
-            self.summaries = tf.summary.merge_all()
+            self.summaries = tf.compat.v1.summary.merge_all()
 
     def __call__(self, state, timestep):
         # pylint: disable=too-many-locals
@@ -146,7 +146,7 @@ class StraightLinePlanner(Planner):
         with tf.Session(config=config, graph=self.graph) as sess:
 
             logdir = os.path.join(self.logdir, f"timestep={timestep}")
-            self.train_writer = tf.summary.FileWriter(logdir)
+            self.train_writer = tf.compat.v1.summary.FileWriter(logdir)
 
             tf.global_variables_initializer().run()
 

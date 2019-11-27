@@ -27,7 +27,7 @@ OutputTuple = namedtuple("OutputTuple", "state action interm reward")
 Trajectory = namedtuple("Trajectory", "states actions interms rewards")
 
 
-class SimulationCell(tf.nn.rnn_cell.RNNCell):
+class SimulationCell(tf.compat.v1.nn.rnn_cell.RNNCell):
     """SimulationCell class implements an RNN cell that simulates the
     next state and reward for the MDP transition given by the RDDL model.
 
