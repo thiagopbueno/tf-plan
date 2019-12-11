@@ -36,7 +36,7 @@ import psutil
     show_default=True,
 )
 @click.option(
-    "--horizon", "-h", default=40, help="Number of timesteps.", show_default=True
+    "--horizon", "-hr", default=40, help="Number of timesteps.", show_default=True
 )
 @click.option(
     "--epochs", "-e", default=500, help="Number of training epochs.", show_default=True
@@ -123,6 +123,7 @@ def cli(*args, **kwargs):
     stddev_uptime = np.std([uptime for _, uptime, _ in trajectories])
     results = pd.concat([stats for _, _, stats in trajectories])
     results = results.groupby(results.index, sort=False).mean()
+    print()
     print(f"===== Average ===== ({avg_uptime:.4f} ± {stddev_uptime:.4f} sec)")
     print(results)
     print()

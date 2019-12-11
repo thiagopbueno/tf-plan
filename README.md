@@ -1,4 +1,4 @@
-# tf-plan [![Build Status](https://travis-ci.org/thiagopbueno/tf-plan.svg?branch=master)](https://travis-ci.org/thiagopbueno/tf-plan) [![Documentation Status](https://readthedocs.org/projects/tf-plan/badge/?version=latest)](https://tf-plan.readthedocs.io/en/latest/?badge=latest) [![License](https://img.shields.io/aur/license/yaourt.svg)](https://github.com/thiagopbueno/tf-plan/blob/master/LICENSE)
+# tf-plan [![Build Status](https://travis-ci.org/thiagopbueno/tf-plan.svg?branch=master)](https://travis-ci.org/thiagopbueno/tf-plan) [![Documentation Status](https://readthedocs.org/projects/tf-plan/badge/?version=latest)](https://tf-plan.readthedocs.io/en/latest/?badge=latest) [![License: GPL v3](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](https://github.com/thiagopbueno/tf-plan/blob/master/LICENSE)
 
 Planning via gradient-based optimization in continuous MDPs using TensorFlow.
 
@@ -26,9 +26,8 @@ The domains/instances are specified using the [RDDL](http://users.cecs.anu.edu.a
 It is built on Python3's RDDL toolkit:
 
 - [pyrddl](https://github.com/thiagopbueno/pyrddl): RDDL lexer/parser in Python3.
-- [rddlgym](https://github.com/thiagopbueno/rddlgym): A toolkit for working with RDDL domains in Python3.
 - [rddl2tf](https://github.com/thiagopbueno/rddl2tf): RDDL2TensorFlow compiler.
-- [tf-rddlsim](https://github.com/thiagopbueno/tf-rddlsim): A RDDL simulator running in TensorFlow.
+- [rddlgym](https://github.com/thiagopbueno/rddlgym): A toolkit for working with RDDL domains in Python3.
 
 Please refer to the projects' documentation for further details.
 
@@ -37,32 +36,29 @@ Please refer to the projects' documentation for further details.
 
 ```text
 $ tfplan --help
+Usage: tfplan [OPTIONS] [tensorplan|straightline|hindsight] RDDL
 
-usage: tfplan [-h] [-m {offline,online}] [-b BATCH_SIZE] [-hr HORIZON]
-              [-e EPOCHS] [-lr LEARNING_RATE] [--viz {generic,navigation}]
-              [-v]
-              rddl
+  Planning via gradient-based optimization in TensorFlow.
 
-tf-plan (v0.5.0): Planning via gradient-based optimization in TensorFlow.
+  Args:
+      RDDL Filename or rddlgym domain/instance id.
 
-positional arguments:
-  rddl                  RDDL file or rddlgym domain id
-
-optional arguments:
-  -h, --help            show this help message and exit
-  -m {offline,online}, --mode {offline,online}
-                        planning mode (default=offline)
-  -b BATCH_SIZE, --batch-size BATCH_SIZE
-                        number of trajectories in a batch (default=128)
-  -hr HORIZON, --horizon HORIZON
-                        number of timesteps (default=40)
-  -e EPOCHS, --epochs EPOCHS
-                        number of timesteps (default=500)
-  -lr LEARNING_RATE, --learning-rate LEARNING_RATE
-                        optimizer learning rate (default=0.001)
-  --viz {generic,navigation}
-                        type of visualizer (default=generic)
-  -v, --verbose         verbosity mode
+Options:
+  -b, --batch-size INTEGER        Number of trajectories in a batch.
+                                  [default: 128]
+  -h, --horizon INTEGER           Number of timesteps.  [default: 40]
+  -e, --epochs INTEGER            Number of training epochs.  [default: 500]
+  --optimizer [Adadelta|Adagrad|Adam|GradientDescent|ProximalGradientDescent|ProximalAdagrad|RMSProp]
+                                  [default: GradientDescent]
+  -lr, --learning-rate FLOAT      Optimizer's learning rate.  [default: 0.001]
+  -n, --num-samples INTEGER       Number of runs.  [default: 1]
+  --num-workers INTEGER RANGE     Number of worker processes (min=1, max=12).
+                                  [default: 1]
+  --logdir PATH                   Directory used for logging training
+                                  summaries.  [default: /tmp/tfplan/]
+  -v, --verbose                   Verbosity flag.
+  --version                       Show the version and exit.
+  --help                          Show this message and exit.
 ```
 
 ## Examples
@@ -70,31 +66,19 @@ optional arguments:
 ### Navigation
 
 ```text
-$ tfplan Navigation-v1 -b 32 -hr 15 -e 1000 -v --viz=navigation
+$ tfplan tensorplan Navigation-v1 -b 32 -hr 20 -e 200 --optimizer RMSProp -lr 0.05
 
-Running tf-plan v0.5.0 ...
->> RDDL:            Navigation-v1
->> Planning mode:   offline
->> Horizon:         15
->> Batch size:      32
->> Training epochs: 1000
->> Learning rate:   0.01
-
-Epoch   999: loss = 6879.5073244
->> total reward = -82.927887
+===== Average ===== (2.0904 ± 0.0000 sec)
+       location(x)  location(y)    move(x)    move(y)  distance(z1)  distance(z2)  deceleration(z1)  deceleration(z2)     reward       done
+count    20.000000    20.000000  20.000000  20.000000     20.000000     20.000000         20.000000         20.000000  20.000000  20.000000
+mean      5.117020     5.964777   0.563600   0.587480      3.845318      5.233718          0.901469          0.898645  -4.208493   0.050000
+std       2.734477     2.976508   0.457455   0.468573      1.745041      3.244598          0.141589          0.161664   4.017443   0.223607
+min       0.000000     1.000000  -0.093972  -0.073001      1.136744      0.892700          0.574107          0.489666 -11.313708   0.000000
+25%       3.102055     3.413130   0.021325   0.035666      2.156688      2.223654          0.844862          0.866897  -7.429872   0.000000
+50%       5.206845     6.302579   0.822792   0.913129      4.295552      4.964723          0.985606          0.993987  -3.883022   0.000000
+75%       7.966873     9.005674   0.984761   0.995023      5.404543      8.832995          0.996010          0.999950  -0.067122   0.000000
+max       8.035465     9.124074   0.997835   0.996823      6.103278      8.956371          0.998212          0.999957  -0.007049   1.000000
 ```
-
-![docs/img/navigation-v1.png](docs/img/navigation-v1.png)
-
-### HVAC
-
-```text
-$ tfplan HVAC-V1 -b 64 -hr 40 -e 1000 --viz=generic
-
-Epoch   999: loss = 58134777856.00000000
->> total reward = -241098.296875
-```
-
 
 # Documentation
 
