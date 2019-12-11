@@ -21,7 +21,7 @@ import pytest
 import tensorflow as tf
 
 import rddlgym
-from rddl2tf import DefaultCompiler
+from rddl2tf.compilers import DefaultCompiler
 
 from tfplan.train.policy import OpenLoopPolicy
 
