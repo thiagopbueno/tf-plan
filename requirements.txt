@@ -2,6 +2,6 @@ Click
 numpy
 psutil
 tqdm
-tensorflow<2.0.0
+tensorflow<3.0.0
 rddlgym
 rddl2tf
