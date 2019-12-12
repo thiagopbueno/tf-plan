@@ -14,7 +14,7 @@ Planning via gradient-based optimization in continuous MDPs using TensorFlow.
 **tf-plan** is a Python3.5+ package available in PyPI.
 
 ```text
-$ pip3 install tf-plan
+$ pip3 install -U tf-plan
 ```
 
 # Features
@@ -46,7 +46,7 @@ Usage: tfplan [OPTIONS] [tensorplan|straightline|hindsight] RDDL
 Options:
   -b, --batch-size INTEGER        Number of trajectories in a batch.
                                   [default: 128]
-  -h, --horizon INTEGER           Number of timesteps.  [default: 40]
+  -hr, --horizon INTEGER          Number of timesteps.  [default: 40]
   -e, --epochs INTEGER            Number of training epochs.  [default: 500]
   --optimizer [Adadelta|Adagrad|Adam|GradientDescent|ProximalGradientDescent|ProximalAdagrad|RMSProp]
                                   [default: GradientDescent]
