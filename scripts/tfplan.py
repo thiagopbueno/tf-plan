@@ -18,6 +18,7 @@
 
 """tfplan CLI application."""
 
+import json
 
 import click
 import psutil
@@ -86,6 +87,7 @@ import psutil
     help="Directory used for logging training summaries.",
     show_default=True,
 )
+@click.option("--config", type=click.File("r"), help="Configuration JSON file.")
 @click.option("-v", "--verbose", is_flag=True, help="Verbosity flag.")
 @click.version_option()
 def cli(*args, **kwargs):
@@ -104,6 +106,12 @@ def cli(*args, **kwargs):
     from tqdm import tqdm
 
     config = kwargs
+
+    if kwargs["config"]:
+        json_config = json.load(kwargs["config"])
+        config.update(json_config)
+        del config["config"]
+
     config["optimization"] = {
         "optimizer": config["optimizer"],
         "learning_rate": config["learning_rate"],
@@ -157,7 +165,8 @@ def run(config, n):
     horizon = config["horizon"]
     debug = config["verbose"]
 
-    filepath = os.path.join(config["logdir"], f"run{n}/data.csv")
+    config["logdir"] = os.path.join(config["logdir"], f"run{n}")
+    filepath = os.path.join(config["logdir"], "data.csv")
 
     start = time.time()
 
