@@ -18,6 +18,8 @@
 
 import abc
 
+import tensorflow as tf
+
 import rddlgym
 
 
@@ -44,6 +46,13 @@ class Planner(metaclass=abc.ABCMeta):
 
         self.compiler.init()
 
+        config = tf.ConfigProto(
+            inter_op_parallelism_threads=1,
+            intra_op_parallelism_threads=1,
+            log_device_placement=False,
+        )
+        self._sess = tf.Session(graph=self.graph, config=config)
+
     @property
     def graph(self):
         """Returns the compiler's graph."""
@@ -62,3 +71,6 @@ class Planner(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def __call__(self, state, timestep):
         raise NotImplementedError
+
+    def close(self):
+        self._sess.close()

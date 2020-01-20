@@ -50,7 +50,7 @@ setup(
         "numpy",
         "tqdm",
         "psutil",
-        "tensorflow<2.0.0",
+        "tensorflow-cpu=1.15",
         "rddlgym",
         "rddl2tf",
     ],

@@ -107,7 +107,7 @@ def cli(*args, **kwargs):
 
     config = kwargs
 
-    if "config" in kwargs:
+    if kwargs["config"]:
         json_config = json.load(kwargs["config"])
         config.update(json_config)
         del config["config"]
@@ -147,7 +147,7 @@ def run(config, n):
     import os
     import time
 
-    os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+    # os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
     os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
     os.environ["OMP_NUM_THREADS"] = str(psutil.cpu_count(logical=False))
 

@@ -66,8 +66,6 @@ class Tensorplan(Planner):
         self.writer = None
         self.summaries = None
 
-        self._sess = None
-
     @property
     def logdir(self):
         return self.config.get("logdir") or f"/tmp/tfplan/tensorplan/{self.rddl}"
@@ -82,6 +80,10 @@ class Tensorplan(Planner):
             self._build_optimization_ops()
             self._build_solution_ops()
             self._build_summary_ops()
+            self._build_init_ops()
+
+    def _build_init_ops(self):
+        self.init_op = tf.global_variables_initializer()
 
     def _build_policy_ops(self):
         horizon = self.config["horizon"]
@@ -126,18 +128,6 @@ class Tensorplan(Planner):
         Returns:
             plan (Sequence(np.ndarray): The best solution plan.
         """
-
-        if self._sess is None:
-            with self.graph.as_default():
-                self.init_op = tf.global_variables_initializer()
-
-            config = tf.ConfigProto(
-                inter_op_parallelism_threads=1,
-                intra_op_parallelism_threads=1,
-                log_device_placement=False,
-            )
-            self._sess = tf.Session(graph=self.graph, config=config)
-
         self.writer = tf.compat.v1.summary.FileWriter(self.logdir, self.graph)
 
         self._sess.run(self.init_op)
@@ -163,6 +153,8 @@ class Tensorplan(Planner):
                     loss=f"{loss_:10.4f}", avg_total_reward=f"{avg_total_reward_:10.4f}"
                 )
 
+        self.writer.close()
+
         plan_ = self._sess.run(self.best_plan)
         return plan_
 
@@ -181,6 +173,3 @@ class Tensorplan(Planner):
             }
         )
         return action
-
-    def close(self):
-        self._sess.close()
