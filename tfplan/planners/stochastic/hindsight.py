@@ -78,8 +78,6 @@ class HindsightPlanner(Planner):
         self.writer = None
         self.summaries = None
 
-        self._sess = None
-
     @property
     def logdir(self):
         return self.config.get("logdir") or f"/tmp/tfplan/hindsight/{self.rddl}"
@@ -95,6 +93,10 @@ class HindsightPlanner(Planner):
             self._build_loss_ops()
             self._build_optimization_ops()
             self._build_summary_ops()
+            self._build_init_ops()
+
+    def _build_init_ops(self):
+        self.init_op = tf.global_variables_initializer()
 
     def _build_base_policy_ops(self):
         horizon = 1
@@ -149,9 +151,11 @@ class HindsightPlanner(Planner):
         with tf.name_scope("scenarios"):
             self.simulator = Simulator(self.compiler, self.scenario_policy, config=None)
             self.simulator.build()
-            self.trajectory, self.final_state, self.scenario_total_reward = self.simulator.trajectory(
-                self.next_state, self.sequence_length
-            )
+            (
+                self.trajectory,
+                self.final_state,
+                self.scenario_total_reward,
+            ) = self.simulator.trajectory(self.next_state, self.sequence_length)
 
     def _build_loss_ops(self):
         with tf.name_scope("loss"):
@@ -190,17 +194,6 @@ class HindsightPlanner(Planner):
 
     def __call__(self, state, timestep):
         # pylint: disable=too-many-locals
-
-        if self._sess is None:
-            with self.graph.as_default():
-                self.init_op = tf.global_variables_initializer()
-
-            config = tf.ConfigProto(
-                inter_op_parallelism_threads=1,
-                intra_op_parallelism_threads=1,
-                log_device_placement=False,
-            )
-            self._sess = tf.Session(graph=self.graph, config=config)
 
         logdir = os.path.join(self.logdir, f"timestep={timestep}")
         self.writer = tf.compat.v1.summary.FileWriter(logdir)
@@ -243,8 +236,9 @@ class HindsightPlanner(Planner):
                     loss=f"{loss_:10.4f}", avg_total_reward=f"{avg_total_reward_:10.4f}"
                 )
 
-        action = self._get_action(self._sess, feed_dict)
+        self.writer.close()
 
+        action = self._get_action(self._sess, feed_dict)
         return action
 
     def _get_batch_initial_state(self, state):
@@ -268,6 +262,3 @@ class HindsightPlanner(Planner):
             }
         )
         return action
-
-    def close(self):
-        self._sess.close()
