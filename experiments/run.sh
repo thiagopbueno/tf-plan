@@ -1,18 +1,32 @@
 #! /usr/bin/env bash
 
-basedir=20200119
-rddl=Reservoir-10
-planner=hindsight
+basedir=20200123
 
-for dirpath in $basedir/$rddl/$planner/* ; do
-    config=$dirpath/config.json
+rddls=(Reservoir-10)
+planners=(hindsight straightline)
 
-    if [ -f  "$config" ] ; then
-        echo ">> [$(date +"%T")] Running tfplan for $config ..."
-        cat $config
-        echo
-        echo
-        echo ">> tfplan $planner $rddl --logdir $dirpath --config $config"
-        tfplan $planner $rddl --logdir $dirpath --config $config
-    fi
+
+run()
+{
+    total_num_experiments=$(find $1 -type f -name "config.json" -print | wc -l)
+
+    i=0
+    find $1 -type f -name "config.json" -print0 | while read -d $'\0' config
+    do
+        i=$((i + 1))
+        echo "===== EXPERIMENT $i / $total_num_experiments ====="
+        echo ">> tfplan $planner $rddl --logdir $(dirname $config) --config $config"
+        echo ">> config = $(cat $config)"
+        tfplan $planner $rddl --logdir $(dirname $config) --config $config
+    done
+}
+
+
+for rddl in "${rddls[@]}"
+do
+    for planner in "${planners[@]}"
+    do
+        dirpath=$basedir/$rddl/$planner
+        run $dirpath
+    done
 done
