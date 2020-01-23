@@ -100,6 +100,8 @@ def cli(*args, **kwargs):
     """
     import functools
     import multiprocessing
+    import os
+    import re
 
     import numpy as np
     import pandas as pd
@@ -120,10 +122,16 @@ def cli(*args, **kwargs):
     n_samples = kwargs["num_samples"]
     num_workers = kwargs["num_workers"]
 
+    previous_runs = [
+        path for path in os.listdir(config["logdir"]) if re.search(r"run\d+$", path)
+    ]
+    start_id = len(previous_runs)
+    pids = range(start_id, start_id + n_samples)
+
     pool = multiprocessing.Pool(
         processes=num_workers, initializer=tqdm.set_lock, initargs=(tqdm.get_lock(),)
     )
-    trajectories = pool.map(functools.partial(run, config), range(n_samples))
+    trajectories = pool.map(functools.partial(run, config), pids)
     pool.close()
     pool.join()
 
