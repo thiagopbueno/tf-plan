@@ -1,38 +1,30 @@
 tfplan.planners package
 =======================
 
+Subpackages
+-----------
+
+.. toctree::
+
+   tfplan.planners.deterministic
+   tfplan.planners.stochastic
+
 Submodules
 ----------
 
-tfplan.planners.environment module
-----------------------------------
-
-.. automodule:: tfplan.planners.environment
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-tfplan.planners.offline module
+tfplan.planners.planner module
 ------------------------------
 
-.. automodule:: tfplan.planners.offline
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-tfplan.planners.online module
------------------------------
-
-.. automodule:: tfplan.planners.online
-    :members:
-    :undoc-members:
-    :show-inheritance:
+.. automodule:: tfplan.planners.planner
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
 
 Module contents
 ---------------
 
 .. automodule:: tfplan.planners
-    :members:
-    :undoc-members:
-    :show-inheritance:
+   :members:
+   :undoc-members:
+   :show-inheritance:
