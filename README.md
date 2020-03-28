@@ -1,4 +1,4 @@
-# tf-plan [![Build Status](https://travis-ci.org/thiagopbueno/tf-plan.svg?branch=master)](https://travis-ci.org/thiagopbueno/tf-plan) [![Documentation Status](https://readthedocs.org/projects/tf-plan/badge/?version=latest)](https://tf-plan.readthedocs.io/en/latest/?badge=latest) [![License: GPL v3](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](https://github.com/thiagopbueno/tf-plan/blob/master/LICENSE)
+# tf-plan [![Py Versions][py-versions.svg]][pypi-project] [![PyPI version][pypi-version.svg]][pypi-version] [![Build Status][travis.svg]][travis-project] [![Documentation Status][rtd-badge.svg]][rtd-badge] [![License: GPL v3][license.svg]][license]
 
 Planning via gradient-based optimization in continuous MDPs using TensorFlow.
 
@@ -104,3 +104,19 @@ General Public License for more details.
 
 You should have received a copy of the GNU Lesser General Public License
 along with tf-plan. If not, see http://www.gnu.org/licenses/.
+
+
+[py-versions.svg]: https://img.shields.io/pypi/pyversions/tf-plan.svg?logo=python&logoColor=white
+[pypi-project]: https://pypi.org/project/tf-plan
+
+[pypi-version.svg]: https://badge.fury.io/py/tf-plan.svg
+[pypi-version]: https://badge.fury.io/py/tf-plan
+
+[travis.svg]: https://img.shields.io/travis/thiagopbueno/tf-plan/master.svg?logo=travis
+[travis-project]: https://travis-ci.org/thiagopbueno/tf-plan
+
+[rtd-badge.svg]: https://readthedocs.org/projects/tf-plan/badge/?version=latest
+[rtd-badge]: https://tf-plan.readthedocs.io/en/latest/?badge=latest
+
+[license.svg]: https://img.shields.io/badge/License-GPL%20v3-blue.svg
+[license]: https://github.com/thiagopbueno/tf-plan/blob/master/LICENSE
