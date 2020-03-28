@@ -13,10 +13,15 @@
 # You should have received a copy of the GNU General Public License
 # along with tf-plan. If not, see <http://www.gnu.org/licenses/>.
 
-from collections import OrderedDict
+# pylint: disable=missing-docstring
+
+import abc
+import collections
+import os
 
 import numpy as np
 import tensorflow as tf
+from tqdm import trange
 
 from rddl2tf.compilers import ReparameterizationCompiler
 
@@ -34,6 +39,8 @@ class StochasticPlanner(Planner):
         config (Dict[str, Any]): The planner config dict.
     """
 
+    __metaclass__ = abc.ABCMeta
+
     def __init__(self, rddl, compiler_cls, config):
         super().__init__(rddl, ReparameterizationCompiler, config)
 
@@ -45,8 +52,22 @@ class StochasticPlanner(Planner):
         self.optimizer = None
         self.grads_and_vars = None
 
+        self.avg_total_reward = None
+        self.loss = None
+
         self.init_op = None
         self.train_op = None
+
+        self.summaries = None
+
+    @abc.abstractmethod
+    def build(self):
+        """Builds the planner."""
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def __call__(self, state, timestep):
+        raise NotImplementedError
 
     def _build_init_ops(self):
         self.init_op = tf.global_variables_initializer()
@@ -64,11 +85,11 @@ class StochasticPlanner(Planner):
                 tf.reshape(self.steps_to_go, [1]), [self.batch_size]
             )
 
-    def _build_optimization_ops(self, loss):
+    def _build_optimization_ops(self):
         with tf.name_scope("optimization"):
             self.optimizer = ActionOptimizer(self.config["optimization"])
             self.optimizer.build()
-            self.grads_and_vars = self.optimizer.compute_gradients(loss)
+            self.grads_and_vars = self.optimizer.compute_gradients(self.loss)
             self.train_op = self.optimizer.apply_gradients(self.grads_and_vars)
 
     def _get_batch_initial_state(self, state):
@@ -85,10 +106,49 @@ class StochasticPlanner(Planner):
     def _get_action(self, actions, feed_dict):
         action_fluent_ordering = self.compiler.rddl.domain.action_fluent_ordering
         actions = self._sess.run(actions, feed_dict=feed_dict)
-        action = OrderedDict(
+        action = collections.OrderedDict(
             {
                 name: fluent[0][0]
                 for name, fluent in zip(action_fluent_ordering, actions)
             }
         )
         return action
+
+    def run(self, state, timestep, feed_dict):
+        self._sess.run(self.init_op)
+
+        feed_dict = {
+            **feed_dict,
+            self.initial_state: self._get_batch_initial_state(state),
+        }
+
+        if self.summaries:
+            logdir = os.path.join(self.config.get("logdir"), f"timestep={timestep}")
+            writer = tf.compat.v1.summary.FileWriter(logdir)
+
+        run_id = self.config.get("run_id", 0)
+        pid = os.getpid()
+        position = run_id % self.config.get("num_workers", 1)
+        epochs = self.config["epochs"]
+        desc = f"(pid={pid}) Run #{run_id:<3d} / step={timestep:<3d}"
+
+        with trange(
+            epochs, desc=desc, unit="epoch", position=position, leave=False
+        ) as t:
+
+            for step in t:
+                _, loss_, avg_total_reward_ = self._sess.run(
+                    [self.train_op, self.loss, self.avg_total_reward],
+                    feed_dict=feed_dict,
+                )
+
+                if self.summaries:
+                    summary_ = self._sess.run(self.summaries, feed_dict=feed_dict)
+                    writer.add_summary(summary_, step)
+
+                t.set_postfix(
+                    loss=f"{loss_:10.4f}", avg_total_reward=f"{avg_total_reward_:10.4f}"
+                )
+
+        if self.summaries:
+            writer.close()

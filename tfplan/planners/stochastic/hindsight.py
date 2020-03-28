@@ -16,10 +16,7 @@
 # pylint: disable=missing-docstring
 
 
-import os
-
 import tensorflow as tf
-from tqdm import trange
 
 from rddl2tf.compilers import ReparameterizationCompiler
 
@@ -67,10 +64,6 @@ class HindsightPlanner(StochasticPlanner):
         self.writer = None
         self.summaries = None
 
-    @property
-    def logdir(self):
-        return self.config.get("logdir") or f"/tmp/tfplan/hindsight/{self.rddl}"
-
     def build(self):
         with self.graph.as_default():
             self._build_base_policy_ops()
@@ -80,7 +73,7 @@ class HindsightPlanner(StochasticPlanner):
             self._build_sequence_length_ops()
             self._build_trajectory_ops()
             self._build_loss_ops()
-            self._build_optimization_ops(self.loss)
+            self._build_optimization_ops()
             self._build_summary_ops()
             self._build_init_ops()
 
@@ -137,12 +130,13 @@ class HindsightPlanner(StochasticPlanner):
             self.loss = tf.square(self.avg_total_reward)
 
     def _build_summary_ops(self):
-        with tf.name_scope("summary"):
-            _ = tf.compat.v1.summary.FileWriter(self.logdir, self.graph)
-            tf.compat.v1.summary.scalar("avg_total_reward", self.avg_total_reward)
-            tf.compat.v1.summary.scalar("loss", self.loss)
+        if self.config["verbose"]:
 
-            if self.config["verbose"]:
+            with tf.name_scope("summary"):
+                _ = tf.compat.v1.summary.FileWriter(self.config["logdir"], self.graph)
+                tf.compat.v1.summary.scalar("avg_total_reward", self.avg_total_reward)
+                tf.compat.v1.summary.scalar("loss", self.loss)
+
                 tf.compat.v1.summary.histogram("reward", self.reward)
                 tf.compat.v1.summary.histogram(
                     "scenario_total_reward", self.scenario_total_reward
@@ -156,16 +150,9 @@ class HindsightPlanner(StochasticPlanner):
                     tf.compat.v1.summary.histogram(f"{var_name}_grad", grad)
                     tf.compat.v1.summary.histogram(var_name, variable)
 
-            self.summaries = tf.compat.v1.summary.merge_all()
+                self.summaries = tf.compat.v1.summary.merge_all()
 
     def __call__(self, state, timestep):
-        # pylint: disable=too-many-locals
-
-        logdir = os.path.join(self.logdir, f"timestep={timestep}")
-        self.writer = tf.compat.v1.summary.FileWriter(logdir)
-
-        self._sess.run(self.init_op)
-
         next_state_noise = utils.evaluate_noise_samples_as_inputs(
             self._sess, self.cell_samples
         )
@@ -174,35 +161,12 @@ class HindsightPlanner(StochasticPlanner):
         )
 
         feed_dict = {
-            self.initial_state: self._get_batch_initial_state(state),
             self.cell_noise: next_state_noise,
             self.simulator.noise: scenario_noise,
             self.steps_to_go: self.config["horizon"] - timestep - 1,
         }
 
-        run_id = self.config.get("run_id", 0)
-        pid = os.getpid()
-        position = run_id % self.config.get("num_workers", 1)
-        epochs = self.config["epochs"]
-        desc = f"(pid={pid}) Run #{run_id:<3d} / step={timestep:<3d}"
-
-        with trange(
-            epochs, desc=desc, unit="epoch", position=position, leave=False
-        ) as t:
-
-            for step in t:
-                _, loss_, avg_total_reward_, summary_ = self._sess.run(
-                    [self.train_op, self.loss, self.avg_total_reward, self.summaries],
-                    feed_dict=feed_dict,
-                )
-
-                self.writer.add_summary(summary_, step)
-
-                t.set_postfix(
-                    loss=f"{loss_:10.4f}", avg_total_reward=f"{avg_total_reward_:10.4f}"
-                )
-
-        self.writer.close()
+        self.run(state, timestep, feed_dict)
 
         action = self._get_action(self.action, feed_dict)
         return action

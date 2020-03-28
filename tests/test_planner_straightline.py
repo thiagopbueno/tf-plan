@@ -23,6 +23,7 @@ import tensorflow as tf
 import rddlgym
 
 from tfplan.planners import DEFAULT_CONFIG, StraightLinePlanner
+from tfplan.planners.stochastic import utils
 
 
 BATCH_SIZE = 16
@@ -106,14 +107,6 @@ def test_get_batch_initial_state(planner):
             assert batch_fluent.shape[0] == planner.compiler.batch_size
 
 
-def test_get_noise_samples(planner):
-    # pylint: disable=protected-access
-    with tf.Session(graph=planner.compiler.graph) as sess:
-        samples_ = planner._get_noise_samples(sess)
-        assert planner.simulator.noise.dtype == samples_.dtype
-        assert planner.simulator.noise.shape.as_list() == list(samples_.shape)
-
-
 def test_get_action(planner):
     # pylint: disable=protected-access
     env = rddlgym.make(planner.rddl, mode=rddlgym.GYM)
@@ -122,7 +115,9 @@ def test_get_action(planner):
         sess.run(tf.global_variables_initializer())
         state = env.observation_space.sample()
         batch_state = planner._get_batch_initial_state(state)
-        samples = planner._get_noise_samples(sess)
+        samples = utils.evaluate_noise_samples_as_inputs(
+            sess, planner.simulator.samples
+        )
         feed_dict = {
             planner.initial_state: batch_state,
             planner.simulator.noise: samples,
