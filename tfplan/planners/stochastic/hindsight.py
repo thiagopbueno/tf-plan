@@ -64,18 +64,9 @@ class HindsightPlanner(StochasticPlanner):
         self.writer = None
         self.summaries = None
 
-    def build(self):
-        with self.graph.as_default():
-            self._build_base_policy_ops()
-            self._build_scenario_policy_ops()
-            self._build_initial_state_ops()
-            self._build_scenario_start_states_ops()
-            self._build_sequence_length_ops()
-            self._build_trajectory_ops()
-            self._build_loss_ops()
-            self._build_optimization_ops()
-            self._build_summary_ops()
-            self._build_init_ops()
+    def _build_policy_ops(self):
+        self._build_base_policy_ops()
+        self._build_scenario_policy_ops()
 
     def _build_base_policy_ops(self):
         horizon = 1
@@ -88,6 +79,10 @@ class HindsightPlanner(StochasticPlanner):
             self.compiler, horizon, parallel_plans=True
         )
         self.scenario_policy.build("scenario_policy")
+
+    def _build_trajectory_ops(self):
+        self._build_scenario_start_states_ops()
+        self._build_scenario_trajectory_ops()
 
     def _build_scenario_start_states_ops(self):
         with tf.name_scope("current_action"):
@@ -113,7 +108,7 @@ class HindsightPlanner(StochasticPlanner):
             self.action = output[1]
             self.reward = tf.squeeze(output[3])
 
-    def _build_trajectory_ops(self):
+    def _build_scenario_trajectory_ops(self):
         with tf.name_scope("scenarios"):
             self.simulator = Simulator(self.compiler, self.scenario_policy, config=None)
             self.simulator.build()

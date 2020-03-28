@@ -60,13 +60,35 @@ class StochasticPlanner(Planner):
 
         self.summaries = None
 
-    @abc.abstractmethod
-    def build(self):
-        """Builds the planner."""
-        raise NotImplementedError
+    def build(self,):
+        with self.graph.as_default():
+            self._build_policy_ops()
+            self._build_initial_state_ops()
+            self._build_sequence_length_ops()
+            self._build_trajectory_ops()
+            self._build_loss_ops()
+            self._build_optimization_ops()
+            self._build_summary_ops()
+            self._build_init_ops()
 
     @abc.abstractmethod
     def __call__(self, state, timestep):
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def _build_policy_ops(self):
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def _build_trajectory_ops(self):
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def _build_loss_ops(self):
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def _build_summary_ops(self):
         raise NotImplementedError
 
     def _build_init_ops(self):

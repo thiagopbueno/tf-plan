@@ -54,17 +54,6 @@ class StraightLinePlanner(StochasticPlanner):
         self.writer = None
         self.summaries = None
 
-    def build(self,):
-        with self.graph.as_default():
-            self._build_policy_ops()
-            self._build_initial_state_ops()
-            self._build_sequence_length_ops()
-            self._build_trajectory_ops()
-            self._build_loss_ops()
-            self._build_optimization_ops()
-            self._build_summary_ops()
-            self._build_init_ops()
-
     def _build_policy_ops(self):
         horizon = self.config["horizon"]
         self.policy = OpenLoopPolicy(self.compiler, horizon, parallel_plans=False)
