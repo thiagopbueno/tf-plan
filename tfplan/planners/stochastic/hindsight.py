@@ -16,41 +16,37 @@
 # pylint: disable=missing-docstring
 
 
-from collections import OrderedDict
 import os
 
-import numpy as np
 import tensorflow as tf
 from tqdm import trange
 
 from rddl2tf.compilers import ReparameterizationCompiler
 
-from tfplan.planners import Planner
+from tfplan.planners.stochastic import StochasticPlanner
 from tfplan.planners.stochastic import utils
 from tfplan.planners.stochastic.simulation import SimulationCell, Simulator
-from tfplan.train.optimizer import ActionOptimizer
 from tfplan.train.policy import OpenLoopPolicy
 
 
-class HindsightPlanner(Planner):
-    """HindsightPlanner class implements the online gradient-based
+class HindsightPlanner(StochasticPlanner):
+    """HindsightPlanner class implements an online gradient-based
     planner that chooses the next action based on the upper bound of
-    the Value function of the start state.
+    the Value function of the current state.
 
     Args:
-        model (pyrddl.rddl.RDDL): A RDDL model.
+        rddl (str): A RDDL domain/instance filepath or rddlgym id.
         config (Dict[str, Any]): The planner config dict.
     """
 
     # pylint: disable=too-many-instance-attributes
 
     def __init__(self, rddl, config):
-        super(HindsightPlanner, self).__init__(rddl, ReparameterizationCompiler, config)
+        super().__init__(rddl, ReparameterizationCompiler, config)
 
         self.base_policy = None
         self.scenario_policy = None
 
-        self.initial_state = None
         self.next_state = None
 
         self.cell = None
@@ -58,9 +54,6 @@ class HindsightPlanner(Planner):
         self.cell_samples = None
         self.action = None
         self.reward = None
-
-        self.steps_to_go = None
-        self.sequence_length = None
 
         self.simulator = None
         self.trajectory = None
@@ -70,10 +63,6 @@ class HindsightPlanner(Planner):
 
         self.avg_total_reward = None
         self.loss = None
-
-        self.optimizer = None
-        self.grads_and_vars = None
-        self.train_op = None
 
         self.writer = None
         self.summaries = None
@@ -91,12 +80,9 @@ class HindsightPlanner(Planner):
             self._build_sequence_length_ops()
             self._build_trajectory_ops()
             self._build_loss_ops()
-            self._build_optimization_ops()
+            self._build_optimization_ops(self.loss)
             self._build_summary_ops()
             self._build_init_ops()
-
-    def _build_init_ops(self):
-        self.init_op = tf.global_variables_initializer()
 
     def _build_base_policy_ops(self):
         horizon = 1
@@ -109,12 +95,6 @@ class HindsightPlanner(Planner):
             self.compiler, horizon, parallel_plans=True
         )
         self.scenario_policy.build("scenario_policy")
-
-    def _build_initial_state_ops(self):
-        with tf.name_scope("initial_state"):
-            self.initial_state = tuple(
-                tf.placeholder(t.dtype, t.shape) for t in self.compiler.initial_state()
-            )
 
     def _build_scenario_start_states_ops(self):
         with tf.name_scope("current_action"):
@@ -140,13 +120,6 @@ class HindsightPlanner(Planner):
             self.action = output[1]
             self.reward = tf.squeeze(output[3])
 
-    def _build_sequence_length_ops(self):
-        with tf.name_scope("sequence_length"):
-            self.steps_to_go = tf.placeholder(tf.int32, shape=())
-            self.sequence_length = tf.tile(
-                tf.reshape(self.steps_to_go, [1]), [self.batch_size]
-            )
-
     def _build_trajectory_ops(self):
         with tf.name_scope("scenarios"):
             self.simulator = Simulator(self.compiler, self.scenario_policy, config=None)
@@ -162,13 +135,6 @@ class HindsightPlanner(Planner):
             self.total_reward = self.reward + self.scenario_total_reward
             self.avg_total_reward = tf.reduce_mean(self.total_reward)
             self.loss = tf.square(self.avg_total_reward)
-
-    def _build_optimization_ops(self):
-        with tf.name_scope("optimization"):
-            self.optimizer = ActionOptimizer(self.config["optimization"])
-            self.optimizer.build()
-            self.grads_and_vars = self.optimizer.compute_gradients(self.loss)
-            self.train_op = self.optimizer.apply_gradients(self.grads_and_vars)
 
     def _build_summary_ops(self):
         with tf.name_scope("summary"):
@@ -238,27 +204,5 @@ class HindsightPlanner(Planner):
 
         self.writer.close()
 
-        action = self._get_action(self._sess, feed_dict)
-        return action
-
-    def _get_batch_initial_state(self, state):
-        batch_size = self.compiler.batch_size
-        return tuple(
-            map(
-                lambda fluent: np.tile(
-                    fluent, (batch_size, *([1] * len(fluent.shape)))
-                ),
-                state.values(),
-            )
-        )
-
-    def _get_action(self, sess, feed_dict):
-        action_fluent_ordering = self.compiler.rddl.domain.action_fluent_ordering
-        actions = sess.run(self.action, feed_dict=feed_dict)
-        action = OrderedDict(
-            {
-                name: fluent[0][0]
-                for name, fluent in zip(action_fluent_ordering, actions)
-            }
-        )
+        action = self._get_action(self.action, feed_dict)
         return action

@@ -173,7 +173,7 @@ def test_get_action(planner):
         sess.run(tf.global_variables_initializer())
         feed_dict = _get_feed_dict(sess, planner, env)
 
-        actions_ = planner._get_action(sess, feed_dict)
+        actions_ = planner._get_action(planner.action, feed_dict)
 
         action_fluents = planner.compiler.default_action_fluents
         assert isinstance(actions_, OrderedDict)

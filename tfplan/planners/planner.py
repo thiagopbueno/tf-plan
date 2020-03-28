@@ -34,8 +34,9 @@ class Planner(metaclass=abc.ABCMeta):
     """Planner abstract base class.
 
     Args:
-        compiler (rddl2tf.Compiler): The RDDL-to-TensorFlow compiler.
-        config (Dict[str, Any]): A config dict.
+        rddl: (pyrddl.rddl.RDDL): A RDDL
+        compiler_cls (rddl2tf.Compiler): The RDDL-to-TensorFlow compiler class.
+        config (Dict[str, Any]): The planner config dict.
     """
 
     def __init__(self, rddl, compiler_cls, config):

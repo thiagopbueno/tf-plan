@@ -16,45 +16,39 @@
 # pylint: disable=missing-docstring
 
 
-from collections import OrderedDict
+# from collections import OrderedDict
 import os
 
-import numpy as np
+# import numpy as np
 import tensorflow as tf
 from tqdm import trange
 
 from rddl2tf.compilers import ReparameterizationCompiler
 
-from tfplan.planners.planner import Planner
+from tfplan.planners.stochastic import StochasticPlanner
 from tfplan.train.policy import OpenLoopPolicy
 from tfplan.planners.stochastic.simulation import Simulator
 from tfplan.planners.stochastic import utils
-from tfplan.train.optimizer import ActionOptimizer
+
+# from tfplan.train.optimizer import ActionOptimizer
 
 
-class StraightLinePlanner(Planner):
+class StraightLinePlanner(StochasticPlanner):
     """StraightLinePlanner class implements the online gradient-based
     planner that chooses the next action based on the lower bound of
     the Value function of the start state.
 
     Args:
-        model (pyrddl.rddl.RDDL): A RDDL model.
+        rddl (str): A RDDL domain/instance filepath or rddlgym id.
         config (Dict[str, Any]): The planner config dict.
     """
 
     # pylint: disable=too-many-instance-attributes
 
     def __init__(self, rddl, config):
-        super(StraightLinePlanner, self).__init__(
-            rddl, ReparameterizationCompiler, config
-        )
+        super().__init__(rddl, ReparameterizationCompiler, config)
 
         self.policy = None
-
-        self.initial_state = None
-
-        self.steps_to_go = None
-        self.sequence_length = None
 
         self.simulator = None
         self.trajectory = None
@@ -63,10 +57,6 @@ class StraightLinePlanner(Planner):
 
         self.avg_total_reward = None
         self.loss = None
-
-        self.optimizer = None
-        self.grads_and_vars = None
-        self.train_op = None
 
         self.writer = None
         self.summaries = None
@@ -82,50 +72,29 @@ class StraightLinePlanner(Planner):
             self._build_sequence_length_ops()
             self._build_trajectory_ops()
             self._build_loss_ops()
-            self._build_optimization_ops()
+            self._build_optimization_ops(self.loss)
             self._build_summary_ops()
             self._build_init_ops()
-
-    def _build_init_ops(self):
-        self.init_op = tf.global_variables_initializer()
 
     def _build_policy_ops(self):
         horizon = self.config["horizon"]
         self.policy = OpenLoopPolicy(self.compiler, horizon, parallel_plans=False)
         self.policy.build("planning")
 
-    def _build_initial_state_ops(self):
-        with tf.name_scope("initial_state"):
-            self.initial_state = tuple(
-                tf.placeholder(t.dtype, t.shape) for t in self.compiler.initial_state()
-            )
-
-    def _build_sequence_length_ops(self):
-        with tf.name_scope("sequence_length"):
-            self.steps_to_go = tf.placeholder(tf.int32, shape=())
-            self.sequence_length = tf.tile(
-                tf.reshape(self.steps_to_go, [1]), [self.compiler.batch_size]
-            )
-
     def _build_trajectory_ops(self):
         with tf.name_scope("scenarios"):
             self.simulator = Simulator(self.compiler, self.policy, config=None)
             self.simulator.build()
-            self.trajectory, self.final_state, self.total_reward = self.simulator.trajectory(
-                self.initial_state, self.sequence_length
-            )
+            (
+                self.trajectory,
+                self.final_state,
+                self.total_reward,
+            ) = self.simulator.trajectory(self.initial_state, self.sequence_length)
 
     def _build_loss_ops(self):
         with tf.name_scope("loss"):
             self.avg_total_reward = tf.reduce_mean(self.total_reward)
             self.loss = tf.square(self.avg_total_reward)
-
-    def _build_optimization_ops(self):
-        with tf.name_scope("optimization"):
-            self.optimizer = ActionOptimizer(self.config["optimization"])
-            self.optimizer.build()
-            self.grads_and_vars = self.optimizer.compute_gradients(self.loss)
-            self.train_op = self.optimizer.apply_gradients(self.grads_and_vars)
 
     def _build_summary_ops(self):
         with tf.name_scope("summary"):
@@ -182,31 +151,9 @@ class StraightLinePlanner(Planner):
 
         self.writer.close()
 
-        action = self._get_action(self._sess, feed_dict)
+        action = self._get_action(self.trajectory.actions, feed_dict)
         return action
-
-    def _get_batch_initial_state(self, state):
-        batch_size = self.compiler.batch_size
-        return tuple(
-            map(
-                lambda fluent: np.tile(
-                    fluent, (batch_size, *([1] * len(fluent.shape)))
-                ),
-                state.values(),
-            )
-        )
 
     def _get_noise_samples(self, sess):
         samples = utils.evaluate_noise_samples_as_inputs(sess, self.simulator.samples)
         return samples
-
-    def _get_action(self, sess, feed_dict):
-        action_fluent_ordering = self.compiler.rddl.domain.action_fluent_ordering
-        actions = sess.run(self.trajectory.actions, feed_dict=feed_dict)
-        action = OrderedDict(
-            {
-                name: fluent[0][0]
-                for name, fluent in zip(action_fluent_ordering, actions)
-            }
-        )
-        return action

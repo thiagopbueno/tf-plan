@@ -128,7 +128,7 @@ def test_get_action(planner):
             planner.simulator.noise: samples,
             planner.steps_to_go: HORIZON,
         }
-        actions_ = planner._get_action(sess, feed_dict)
+        actions_ = planner._get_action(planner.trajectory.actions, feed_dict)
         action_fluents = planner.compiler.default_action_fluents
         assert isinstance(actions_, OrderedDict)
         assert len(actions_) == len(action_fluents)
