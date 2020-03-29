@@ -1,4 +1,4 @@
-.PHONY: docs test
+.PHONY: docs test upload
 
 docs:
 	sphinx-apidoc -f -o docs tfplan
@@ -6,3 +6,7 @@ docs:
 
 test:
 	pytest tests/*.py -sv --disable-warnings 2>/dev/null
+
+upload:
+	python3 setup.py clean sdist
+	twine upload dist/*
