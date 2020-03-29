@@ -156,12 +156,13 @@ class HindsightPlanner(StochasticPlanner):
         )
 
         feed_dict = {
+            self.initial_state: self._get_batch_initial_state(state),
             self.cell_noise: next_state_noise,
             self.simulator.noise: scenario_noise,
             self.steps_to_go: self.config["horizon"] - timestep - 1,
         }
 
-        self.run(state, timestep, feed_dict)
+        self.run(timestep, feed_dict)
 
         action = self._get_action(self.action, feed_dict)
         return action

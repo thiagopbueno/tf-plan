@@ -15,7 +15,6 @@
 
 # pylint: disable=missing-docstring
 
-
 import tensorflow as tf
 
 from rddl2tf.compilers import ReparameterizationCompiler
@@ -98,11 +97,12 @@ class StraightLinePlanner(StochasticPlanner):
         )
 
         feed_dict = {
+            self.initial_state: self._get_batch_initial_state(state),
             self.simulator.noise: scenario_noise,
             self.steps_to_go: self.config["horizon"] - timestep,
         }
 
-        self.run(state, timestep, feed_dict)
+        self.run(timestep, feed_dict)
 
         action = self._get_action(self.trajectory.actions, feed_dict)
         return action

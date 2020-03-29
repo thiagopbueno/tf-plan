@@ -136,13 +136,8 @@ class StochasticPlanner(Planner):
         )
         return action
 
-    def run(self, state, timestep, feed_dict):
+    def run(self, timestep, feed_dict):
         self._sess.run(self.init_op)
-
-        feed_dict = {
-            **feed_dict,
-            self.initial_state: self._get_batch_initial_state(state),
-        }
 
         if self.summaries:
             logdir = os.path.join(self.config.get("logdir"), f"timestep={timestep}")
