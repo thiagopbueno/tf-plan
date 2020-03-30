@@ -1,4 +1,3 @@
 tf-plan
-sphinx-rtd-theme
+sphinx_rtd_theme
 sphinxcontrib-napoleon
-m2r

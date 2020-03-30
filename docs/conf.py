@@ -38,7 +38,6 @@ release = "0.6.0"
 extensions = [
     "sphinx.ext.autodoc",
     "sphinxcontrib.napoleon",
-    "m2r",
     "sphinx_rtd_theme",
 ]
 
