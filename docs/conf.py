@@ -17,7 +17,7 @@ sys.path.insert(0, os.path.abspath("."))
 sys.path.insert(0, os.path.abspath(".."))
 
 
-import tfplan
+import tfplan.version
 
 
 # -- Project information -----------------------------------------------------
@@ -27,7 +27,8 @@ copyright = "2020, Thiago P. Bueno"
 author = "Thiago P. Bueno"
 
 # The full version, including alpha/beta/rc tags
-release = "0.6.0"
+release = tfplan.version.__release__
+version = tfplan.version.__version__
 
 
 # -- General configuration ---------------------------------------------------
