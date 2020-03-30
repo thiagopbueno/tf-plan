@@ -81,10 +81,10 @@ html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
 html_static_path = ["_static"]
 
 # Sort members by type
-# autodoc_member_order = "bysource"
+autodoc_member_order = "bysource"
 
 autodoc_default_options = {
-    "member-order": "bysource",
+    # "member-order": "bysource",
     "special-members": "special-members",
     "private-members": "private-members",
 }
