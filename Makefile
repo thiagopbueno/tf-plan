@@ -9,5 +9,6 @@ test:
 	pytest tests/*.py -sv --disable-warnings 2>/dev/null
 
 upload:
-	python3 setup.py clean sdist
+	[ -e "dist/" ] && rm -Rf dist/
+	python3 setup.py sdist bdist_wheel
 	twine upload dist/*
