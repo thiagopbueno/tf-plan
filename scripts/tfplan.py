@@ -23,6 +23,9 @@ import json
 import click
 import psutil
 
+from tuneconfig import TuneConfig
+from tuneconfig.experiment import Experiment
+
 
 @click.command()
 @click.argument(
@@ -90,7 +93,7 @@ import psutil
 @click.option("--config", type=click.File("r"), help="Configuration JSON file.")
 @click.option("-v", "--verbose", is_flag=True, help="Verbosity flag.")
 @click.version_option()
-def cli(*args, **kwargs):
+def cli(**kwargs):
     """
     Planning via gradient-based optimization in TensorFlow.
 
@@ -98,14 +101,6 @@ def cli(*args, **kwargs):
     Args:
         RDDL Filename or rddlgym domain/instance id.
     """
-    import functools
-    import multiprocessing
-    import os
-    import re
-
-    import numpy as np
-    import pandas as pd
-    from tqdm import tqdm
 
     config = kwargs
 
@@ -119,39 +114,25 @@ def cli(*args, **kwargs):
         "learning_rate": config["learning_rate"],
     }
 
-    n_samples = kwargs["num_samples"]
-    num_workers = kwargs["num_workers"]
+    def format_fn(param):
+        fmt = {
+            "batch_size": "batch",
+            "horizon": "hr",
+            "learning_rate": "lr",
+            "optimizer": "opt",
+            "num_samples": None,
+            "num_workers": None,
+        }
+        return fmt.get(param, param)
 
-    previous_runs = [
-        path for path in os.listdir(config["logdir"]) if re.search(r"run\d+$", path)
-    ]
-    start_id = len(previous_runs)
-    pids = range(start_id, start_id + n_samples)
+    config_iterator = TuneConfig(config, format_fn)
 
-    pool = multiprocessing.Pool(
-        processes=num_workers, initializer=tqdm.set_lock, initargs=(tqdm.get_lock(),)
-    )
-    trajectories = pool.map(functools.partial(run, config), pids)
-    pool.close()
-    pool.join()
-
-    avg_uptime = np.mean([uptime for _, uptime, _ in trajectories])
-    stddev_uptime = np.std([uptime for _, uptime, _ in trajectories])
-    results = pd.concat([stats for _, _, stats in trajectories])
-    results = results.groupby(results.index, sort=False).mean()
-    print()
-    print(f"===== Average ===== ({avg_uptime:.4f} ± {stddev_uptime:.4f} sec)")
-    print(results)
-    print()
-
-    if kwargs["verbose"]:
-        for i, (pid, uptime, stats) in enumerate(trajectories):
-            print(f"===== Run #{i} / pid={pid} ({uptime:.4f} sec) =====")
-            print(stats)
-            print()
+    runner = Experiment(config_iterator, config["logdir"])
+    runner.start()
+    results = runner.run(run, config["num_samples"], config["num_workers"])
 
 
-def run(config, n):
+def run(config):
     import os
     import time
 
@@ -166,24 +147,18 @@ def run(config, n):
 
     tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 
-    config["run_id"] = n
-
     planner = config["planner"]
     rddl = config["rddl"]
-    horizon = config["horizon"]
-    debug = config["verbose"]
-
-    config["logdir"] = os.path.join(config["logdir"], f"run{n}")
     filepath = os.path.join(config["logdir"], "data.csv")
 
     start = time.time()
 
     env = rddlgym.make(rddl, mode=rddlgym.GYM, config=config)
-    env.set_horizon(horizon)
+    env.set_horizon(config["horizon"])
 
     planner = tfplan.make(planner, rddl, config)
 
-    with rddlgym.Runner(env, planner, debug=debug) as runner:
+    with rddlgym.Runner(env, planner, debug=config["verbose"]) as runner:
         trajectory = runner.run()
         df = trajectory.save(filepath)
         stats = df.describe()
