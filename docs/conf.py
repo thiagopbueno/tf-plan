@@ -41,6 +41,11 @@ extensions = [
     "sphinx_rtd_theme",
 ]
 
+# -- Extensions configuration ------------------------------------------------
+napoleon_include_private_with_doc = True
+napoleon_include_special_with_doc = True
+
+
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
 
@@ -76,11 +81,10 @@ html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
 html_static_path = ["_static"]
 
 # Sort members by type
-# autodoc_member_order = 'groupwise'
+# autodoc_member_order = "bysource"
 
 autodoc_default_options = {
     "member-order": "bysource",
     "special-members": True,
     "private-members": True,
-    "special-members": True,
 }
