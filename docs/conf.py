@@ -83,8 +83,8 @@ html_static_path = ["_static"]
 # Sort members by type
 # autodoc_member_order = "bysource"
 
-autodoc_default_options = {
-    "member-order": "bysource",
-    "special-members": True,
-    "private-members": True,
-}
+# autodoc_default_options = {
+#     "member-order": "bysource",
+#     "special-members": True,
+#     "private-members": True,
+# }
