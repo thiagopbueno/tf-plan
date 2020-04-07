@@ -124,7 +124,7 @@ def cli(**kwargs):
             "num_workers": None,
             "config": None,
             "logdir": None,
-            "optimization":None,
+            "optimization": None,
             "planner": None,
             "rddl": None,
             "verbose": None,
