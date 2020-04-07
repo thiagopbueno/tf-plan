@@ -122,6 +122,12 @@ def cli(**kwargs):
             "optimizer": "opt",
             "num_samples": None,
             "num_workers": None,
+            "config": None,
+            "logdir": None,
+            "optimization":None,
+            "planner": None,
+            "rddl": None,
+            "verbose": None,
         }
         return fmt.get(param, param)
 
@@ -162,6 +168,8 @@ def run(config):
         trajectory = runner.run()
         df = trajectory.save(filepath)
         stats = df.describe()
+
+    planner.save_stats()
 
     uptime = time.time() - start
 

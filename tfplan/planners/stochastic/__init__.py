@@ -20,6 +20,7 @@ import collections
 import os
 
 import numpy as np
+import pandas as pd
 import tensorflow as tf
 from tqdm import trange
 
@@ -59,6 +60,8 @@ class StochasticPlanner(Planner):
         self.train_op = None
 
         self.summaries = None
+
+        self.stats = {"loss": pd.DataFrame()}
 
     def build(self,):
         with self.graph.as_default():
@@ -153,11 +156,19 @@ class StochasticPlanner(Planner):
             epochs, desc=desc, unit="epoch", position=position, leave=False
         ) as t:
 
+            losses = []
+
+            loss_ = self._sess.run(self.loss, feed_dict=feed_dict)
+            losses.append(loss_)
+
             for step in t:
-                _, loss_, avg_total_reward_ = self._sess.run(
-                    [self.train_op, self.loss, self.avg_total_reward],
-                    feed_dict=feed_dict,
+                self._sess.run(self.train_op, feed_dict=feed_dict)
+
+                loss_, avg_total_reward_ = self._sess.run(
+                    [self.loss, self.avg_total_reward], feed_dict=feed_dict
                 )
+
+                losses.append(loss_)
 
                 if self.summaries:
                     summary_ = self._sess.run(self.summaries, feed_dict=feed_dict)
@@ -167,5 +178,12 @@ class StochasticPlanner(Planner):
                     loss=f"{loss_:10.4f}", avg_total_reward=f"{avg_total_reward_:10.4f}"
                 )
 
+            self.stats["loss"][timestep] = pd.Series(losses)
+
         if self.summaries:
             writer.close()
+
+    def save_stats(self):
+        for key, value in self.stats.items():
+            filepath = os.path.join(self.config["logdir"], f"{key}.csv")
+            value.to_csv(filepath, index=False)
