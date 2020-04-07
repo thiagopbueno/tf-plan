@@ -4,12 +4,15 @@ import os
 import itertools
 
 from tuneconfig import TuneConfig, grid_search
+from tuneconfig.experiment import Experiment
+from tuneconfig.analysis import ExperimentAnalysis
+from tuneconfig.plotting import ExperimentPlotter
 
 
-BASE_DIR = "./20200123/"
+BASE_DIR = "./20200406/Navigation-v3/straightline"
 
-RDDL = ["Reservoir-10"]
-PLANNERS = ["straightline", "hindsight"]
+NUM_SAMPLES = 10
+NUM_WORKERS = 10
 
 
 def format_fn(param):
@@ -20,34 +23,103 @@ def format_fn(param):
         "optimizer": "opt",
         "num_samples": None,
         "num_workers": None,
+        "config": None,
+        "logdir": None,
+        "optimization":None,
+        "planner": None,
+        "rddl": None,
+        "verbose": None,
     }
     return fmt.get(param, param)
 
 
-CONFIG_TEMPLATE = TuneConfig(
+CONFIG_FACTORY = TuneConfig(
     {
-        "batch_size": grid_search([32, 512]),
-        "horizon": 40,
-        "learning_rate": grid_search([0.01, 0.1]),
-        "epochs": grid_search([100, 300]),
+        "planner": grid_search(["straightline"]),
+        "rddl": grid_search(["Navigation-v3"]),
+        "logdir": BASE_DIR,
+        "verbose": False,
+        "batch_size": grid_search([32]),
+        "horizon": 20,
+        "learning_rate": grid_search([0.005]),
+        "epochs": grid_search([300]),
         "optimizer": grid_search(["Adam", "RMSProp", "GradientDescent"]),
-        "num_samples": 10,
-        "num_workers": 10,
+        "num_samples": NUM_SAMPLES,
+        "num_workers": NUM_WORKERS
     },
     format_fn=format_fn,
 )
 
-IGNORE = [
-    {"learning_rate": 0.01, "epochs": 100},
-    {"learning_rate": 0.1, "epochs": 300},
-]
+# IGNORE = [
+#     {"learning_rate": 0.01, "epochs": 100},
+#     {"learning_rate": 0.1, "epochs": 300},
+# ]
+
+
+def run(config):
+    import os
+    import psutil
+    import time
+
+    # os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+    os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
+    os.environ["OMP_NUM_THREADS"] = str(psutil.cpu_count(logical=False))
+
+    import rddlgym
+    import tfplan
+
+    import tensorflow as tf
+
+    tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
+
+    planner = config["planner"]
+    rddl = config["rddl"]
+    filepath = os.path.join(config["logdir"], "data.csv")
+
+    config["optimization"] = {
+        "optimizer": config["optimizer"],
+        "learning_rate": config["learning_rate"],
+    }
+
+    start = time.time()
+
+    env = rddlgym.make(rddl, mode=rddlgym.GYM, config=config)
+    env.set_horizon(config["horizon"])
+
+    planner = tfplan.make(planner, rddl, config)
+
+    with rddlgym.Runner(env, planner, debug=config["verbose"]) as runner:
+        trajectory = runner.run()
+        df = trajectory.save(filepath)
+        stats = df.describe()
+
+    planner.save_stats()
+
+    uptime = time.time() - start
+
+    pid = os.getpid()
+
+    return pid, uptime, stats
 
 
 if __name__ == "__main__":
 
-    for rddl, planner in itertools.product(RDDL, PLANNERS):
-        experiment_dir = os.path.join(BASE_DIR, rddl, planner)
-        json_config_files = CONFIG_TEMPLATE.dump(experiment_dir, ignore=IGNORE)
-        print(f">> Created JSON config files ({rddl} / {planner}):")
-        print("\n".join(json_config_files))
-        print()
+    experiment = Experiment(CONFIG_FACTORY, BASE_DIR)
+    experiment.start()
+
+    _ = experiment.run(run, NUM_SAMPLES, num_workers=NUM_WORKERS, verbose=True)
+
+    analysis = ExperimentAnalysis(experiment.logdir)
+    analysis.setup()
+    analysis.info()
+
+    plotter = ExperimentPlotter(analysis)
+    targets = ["loss:0", "loss:5", "loss:10", "loss:15"]
+    anchors = ["batch=32", "lr=0.005"]
+    x_axis = None
+    y_axis = "optimizer"
+    kwargs = {
+        "target_x_axis_label": "Epochs",
+        "target_y_axis_label": "Loss"
+    }
+    plotter.plot(targets, anchors, x_axis, y_axis, show_fig=True, **kwargs)
