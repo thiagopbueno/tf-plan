@@ -1,16 +1,32 @@
 # pylint: disable=missing-docstring
 
+import datetime
 import os
 
+import click
+import psutil
 import tuneconfig
 
 
 PLANNERS = ["straightline", "hindsight"]
-RDDL_ID = "Navigation-v3"
-BASE_DIR = f"20200408/{RDDL_ID}"
 
-NUM_SAMPLES = 10
-NUM_WORKERS = 10
+
+BASE_CONFIG = {
+    "batch_size": tuneconfig.grid_search([64]),
+    "horizon": 5,
+    "learning_rate": tuneconfig.grid_search([0.005]),
+    "epochs": tuneconfig.grid_search([100]),
+    "optimizer": tuneconfig.grid_search(["Adam", "RMSProp", "GradientDescent"])
+}
+
+
+PLOT_CONFIG = {
+    "targets": ["loss:0", "loss:4"],
+    "anchors": ["batch=64", "lr=0.005"],
+    "x_axis": None,
+    "y_axis": "optimizer",
+    "kwargs": {"target_x_axis_label": "Epochs", "target_y_axis_label": "Loss"}
+}
 
 
 def format_fn(param):
@@ -31,31 +47,103 @@ def format_fn(param):
     return fmt.get(param, param)
 
 
-BASE_CONFIG = {
-    "planner": None,
-    "rddl": RDDL_ID,
-    "logdir": BASE_DIR,
-    "verbose": False,
-    "batch_size": tuneconfig.grid_search([64]),
-    "horizon": 6,
-    "learning_rate": tuneconfig.grid_search([0.005]),
-    "epochs": tuneconfig.grid_search([100]),
-    "optimizer": tuneconfig.grid_search(["Adam", "RMSProp", "GradientDescent"]),
-    "num_samples": NUM_SAMPLES,
-    "num_workers": NUM_WORKERS,
-}
+@click.group()
+def cli():
+    pass
 
 
-# IGNORE = [
-#     {"learning_rate": 0.01, "epochs": 100},
-#     {"learning_rate": 0.1, "epochs": 300},
-# ]
+@cli.command()
+@click.argument("rddl")
+@click.option(
+    "--num-samples",
+    "-n",
+    type=int,
+    default=1,
+    help="Number of runs.",
+    show_default=True,
+)
+@click.option(
+    "--num-workers",
+    type=click.IntRange(min=1, max=psutil.cpu_count()),
+    default=1,
+    help=f"Number of worker processes (min=1, max={psutil.cpu_count()}).",
+    show_default=True,
+)
+@click.option(
+    "--logdir",
+    type=click.Path(),
+    default=f"{datetime.date.today()}/",
+    help=f"Root directory for logging trial results.",
+    show_default=True,
+)
+@click.option("-v", "--verbose", is_flag=True, help="Verbosity flag.")
+def run(**kwargs):
+    """Run experiments."""
+    rddl = kwargs["rddl"]
+    base_dir = kwargs["logdir"]
+    num_samples = kwargs["num_samples"]
+    num_workers = kwargs["num_workers"]
+    verbose = kwargs["verbose"]
+
+    BASE_CONFIG["rddl"] = rddl
+    BASE_CONFIG["num_samples"] = num_samples
+    BASE_CONFIG["num_workers"] = num_workers
+    BASE_CONFIG["verbose"] = False
+
+    for planner in PLANNERS:
+        print(f"::: planner={planner} :::")
+        logdir = os.path.join(base_dir, rddl, planner)
+        BASE_CONFIG["planner"] = planner
+        BASE_CONFIG["logdir"] = logdir
+
+        analysis = tuneconfig.run_experiment(
+            tf_plan_runner,
+            tuneconfig.ConfigFactory(BASE_CONFIG, format_fn=format_fn),
+            logdir,
+            num_samples=num_samples,
+            num_workers=num_workers,
+            verbose=verbose
+        )
+        print()
+        analysis.info()
+        print()
 
 
-def tfplan_runner(config):
-    import os
-    import psutil
-    import time
+@cli.command()
+@click.argument("paths", nargs=-1, required=True)
+@click.option(
+    "-s", "--show-fig",
+    is_flag=True,
+    help="Show figure."
+)
+@click.option(
+    "--filename",
+    help="Output filepath."
+)
+def plot(paths, show_fig, filename):
+    """Plot results."""
+    prefix = os.path.commonprefix(paths)
+
+    analysis_lst = []
+    for path in paths:
+        name = path.replace(prefix, "")
+        analysis = tuneconfig.ExperimentAnalysis(path, name=name)
+        analysis.setup()
+        analysis.info()
+        print()
+        analysis_lst.append(analysis)
+
+    plotter = tuneconfig.ExperimentPlotter(analysis_lst)
+    kwargs = {
+        **PLOT_CONFIG,
+        "show_fig": show_fig,
+        "filename": filename,
+    }
+    plotter.plot(**kwargs)
+
+
+def tf_plan_runner(config):
+    # pylint: disable=import-outside-toplevel
 
     # os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
     os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
@@ -77,8 +165,6 @@ def tfplan_runner(config):
         "learning_rate": config["learning_rate"],
     }
 
-    start = time.time()
-
     env = rddlgym.make(rddl, mode=rddlgym.GYM, config=config)
     env.set_horizon(config["horizon"])
 
@@ -86,48 +172,10 @@ def tfplan_runner(config):
 
     with rddlgym.Runner(env, planner, debug=config["verbose"]) as runner:
         trajectory = runner.run()
-        df = trajectory.save(filepath)
-        stats = df.describe()
+        trajectory.save(filepath)
 
     planner.save_stats()
 
-    uptime = time.time() - start
-
-    pid = os.getpid()
-
-    return pid, uptime, stats
-
 
 if __name__ == "__main__":
-    for planner in PLANNERS:
-        print(f"::: planner={planner} :::")
-        logdir = os.path.join(BASE_DIR, planner)
-        BASE_CONFIG["planner"] = planner
-        BASE_CONFIG["logdir"] = logdir
-        analysis = tuneconfig.run_experiment(
-            tfplan_runner,
-            tuneconfig.ConfigFactory(BASE_CONFIG, format_fn=format_fn),
-            logdir,
-            num_samples=NUM_SAMPLES,
-            num_workers=NUM_WORKERS,
-        )
-        print()
-        analysis.info()
-        print()
-
-    analysis_lst = []
-    for planner in PLANNERS:
-        logdir = os.path.join(BASE_DIR, planner)
-        analysis = tuneconfig.ExperimentAnalysis(logdir, name=planner)
-        analysis.setup()
-        analysis.info()
-        print()
-        analysis_lst.append(analysis)
-
-    plotter = tuneconfig.ExperimentPlotter(analysis_lst)
-    targets = ["loss:0", "loss:5"]  # , "loss:10", "loss:15"]
-    anchors = ["batch=64", "lr=0.005"]
-    x_axis = None
-    y_axis = "optimizer"
-    kwargs = {"target_x_axis_label": "Epochs", "target_y_axis_label": "Loss"}
-    plotter.plot(targets, anchors, x_axis, y_axis, show_fig=True, **kwargs)
+    cli()
