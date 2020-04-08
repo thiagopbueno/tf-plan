@@ -1,7 +1,6 @@
 # pylint: disable=missing-docstring
 
 import os
-import itertools
 
 from tuneconfig import TuneConfig, grid_search
 from tuneconfig.experiment import Experiment
@@ -9,7 +8,9 @@ from tuneconfig.analysis import ExperimentAnalysis
 from tuneconfig.plotting import ExperimentPlotter
 
 
-BASE_DIR = "./20200406/Navigation-v3/straightline"
+PLANNERS = ["straightline", "hindsight"]
+RDDL_ID = "Navigation-v3"
+BASE_DIR = f"20200408/{RDDL_ID}"
 
 NUM_SAMPLES = 10
 NUM_WORKERS = 10
@@ -33,22 +34,20 @@ def format_fn(param):
     return fmt.get(param, param)
 
 
-CONFIG_FACTORY = TuneConfig(
-    {
-        "planner": grid_search(["straightline"]),
-        "rddl": grid_search(["Navigation-v3"]),
-        "logdir": BASE_DIR,
-        "verbose": False,
-        "batch_size": grid_search([32]),
-        "horizon": 20,
-        "learning_rate": grid_search([0.005]),
-        "epochs": grid_search([300]),
-        "optimizer": grid_search(["Adam", "RMSProp", "GradientDescent"]),
-        "num_samples": NUM_SAMPLES,
-        "num_workers": NUM_WORKERS,
-    },
-    format_fn=format_fn,
-)
+BASE_CONFIG = {
+    "planner": None,
+    "rddl": RDDL_ID,
+    "logdir": BASE_DIR,
+    "verbose": False,
+    "batch_size": grid_search([64]),
+    "horizon": 20,
+    "learning_rate": grid_search([0.005]),
+    "epochs": grid_search([200]),
+    "optimizer": grid_search(["Adam", "RMSProp", "GradientDescent"]),
+    "num_samples": NUM_SAMPLES,
+    "num_workers": NUM_WORKERS,
+}
+
 
 # IGNORE = [
 #     {"learning_rate": 0.01, "epochs": 100},
@@ -103,19 +102,28 @@ def run(config):
 
 
 if __name__ == "__main__":
+    for planner in PLANNERS:
+        print(f"::: planner={planner} :::")
+        logdir = os.path.join(BASE_DIR, planner)
+        BASE_CONFIG["planner"] = planner
+        BASE_CONFIG["logdir"] = logdir
+        config_factory = TuneConfig(BASE_CONFIG, format_fn=format_fn)
+        experiment = Experiment(config_factory, logdir)
+        experiment.start()
+        experiment.run(run, NUM_SAMPLES, num_workers=NUM_WORKERS, verbose=True)
 
-    experiment = Experiment(CONFIG_FACTORY, BASE_DIR)
-    experiment.start()
+    analysis_lst = []
+    for planner in PLANNERS:
+        logdir = os.path.join(BASE_DIR, planner)
+        analysis = ExperimentAnalysis(logdir, name=planner)
+        analysis.setup()
+        analysis.info()
+        print()
+        analysis_lst.append(analysis)
 
-    _ = experiment.run(run, NUM_SAMPLES, num_workers=NUM_WORKERS, verbose=True)
-
-    analysis = ExperimentAnalysis(experiment.logdir)
-    analysis.setup()
-    analysis.info()
-
-    plotter = ExperimentPlotter(analysis)
+    plotter = ExperimentPlotter(analysis_lst)
     targets = ["loss:0", "loss:5", "loss:10", "loss:15"]
-    anchors = ["batch=32", "lr=0.005"]
+    anchors = ["batch=64", "lr=0.005"]
     x_axis = None
     y_axis = "optimizer"
     kwargs = {"target_x_axis_label": "Epochs", "target_y_axis_label": "Loss"}
