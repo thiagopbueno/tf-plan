@@ -2,10 +2,7 @@
 
 import os
 
-from tuneconfig import TuneConfig, grid_search
-from tuneconfig.experiment import Experiment
-from tuneconfig.analysis import ExperimentAnalysis
-from tuneconfig.plotting import ExperimentPlotter
+import tuneconfig
 
 
 PLANNERS = ["straightline", "hindsight"]
@@ -39,11 +36,11 @@ BASE_CONFIG = {
     "rddl": RDDL_ID,
     "logdir": BASE_DIR,
     "verbose": False,
-    "batch_size": grid_search([64]),
-    "horizon": 20,
-    "learning_rate": grid_search([0.005]),
-    "epochs": grid_search([200]),
-    "optimizer": grid_search(["Adam", "RMSProp", "GradientDescent"]),
+    "batch_size": tuneconfig.grid_search([64]),
+    "horizon": 6,
+    "learning_rate": tuneconfig.grid_search([0.005]),
+    "epochs": tuneconfig.grid_search([100]),
+    "optimizer": tuneconfig.grid_search(["Adam", "RMSProp", "GradientDescent"]),
     "num_samples": NUM_SAMPLES,
     "num_workers": NUM_WORKERS,
 }
@@ -55,7 +52,7 @@ BASE_CONFIG = {
 # ]
 
 
-def run(config):
+def tfplan_runner(config):
     import os
     import psutil
     import time
@@ -107,22 +104,28 @@ if __name__ == "__main__":
         logdir = os.path.join(BASE_DIR, planner)
         BASE_CONFIG["planner"] = planner
         BASE_CONFIG["logdir"] = logdir
-        config_factory = TuneConfig(BASE_CONFIG, format_fn=format_fn)
-        experiment = Experiment(config_factory, logdir)
-        experiment.start()
-        experiment.run(run, NUM_SAMPLES, num_workers=NUM_WORKERS, verbose=True)
+        analysis = tuneconfig.run_experiment(
+            tfplan_runner,
+            tuneconfig.ConfigFactory(BASE_CONFIG, format_fn=format_fn),
+            logdir,
+            num_samples=NUM_SAMPLES,
+            num_workers=NUM_WORKERS,
+        )
+        print()
+        analysis.info()
+        print()
 
     analysis_lst = []
     for planner in PLANNERS:
         logdir = os.path.join(BASE_DIR, planner)
-        analysis = ExperimentAnalysis(logdir, name=planner)
+        analysis = tuneconfig.ExperimentAnalysis(logdir, name=planner)
         analysis.setup()
         analysis.info()
         print()
         analysis_lst.append(analysis)
 
-    plotter = ExperimentPlotter(analysis_lst)
-    targets = ["loss:0", "loss:5", "loss:10", "loss:15"]
+    plotter = tuneconfig.ExperimentPlotter(analysis_lst)
+    targets = ["loss:0", "loss:5"]  # , "loss:10", "loss:15"]
     anchors = ["batch=64", "lr=0.005"]
     x_axis = None
     y_axis = "optimizer"
