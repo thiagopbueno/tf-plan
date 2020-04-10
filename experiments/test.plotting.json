@@ -1,0 +1,8 @@
+{
+    "targets": ["loss:0", "loss:5"],
+    "anchors": ["batch=64", "lr=0.005"],
+    "x_axis": "optimizer",
+    "plot_type": "line",
+    "target_x_axis_label": "Epochs",
+    "target_y_axis_label": "Loss"
+}

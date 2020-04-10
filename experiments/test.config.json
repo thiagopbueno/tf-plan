@@ -1,0 +1,7 @@
+{
+    "batch_size": ["__grid_search__", [64]],
+    "horizon": 10,
+    "learning_rate": ["__grid_search__", [0.005]],
+    "epochs": ["__grid_search__", [100]],
+    "optimizer": ["__grid_search__", ["Adam", "RMSProp", "GradientDescent"]]
+}
