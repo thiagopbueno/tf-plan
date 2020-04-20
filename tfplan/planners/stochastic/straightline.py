@@ -54,7 +54,7 @@ class StraightLinePlanner(StochasticPlanner):
         self.summaries = None
 
     def _build_policy_ops(self):
-        horizon = self.config["horizon"]
+        horizon = self.horizon
         self.policy = OpenLoopPolicy(self.compiler, horizon, parallel_plans=False)
         self.policy.build("planning")
 
@@ -96,10 +96,14 @@ class StraightLinePlanner(StochasticPlanner):
             self._sess, self.simulator.samples
         )
 
+        steps_to_go = self.config["horizon"] - timestep
+        if "planning_horizon" in self.config:
+            steps_to_go = min(steps_to_go, self.config["planning_horizon"])
+
         feed_dict = {
             self.initial_state: self._get_batch_initial_state(state),
             self.simulator.noise: scenario_noise,
-            self.steps_to_go: self.config["horizon"] - timestep,
+            self.steps_to_go: steps_to_go,
         }
 
         self.run(timestep, feed_dict)

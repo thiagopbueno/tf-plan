@@ -139,6 +139,13 @@ class StochasticPlanner(Planner):
         )
         return action
 
+    @property
+    def horizon(self):
+        horizon = self.config["horizon"]
+        if "planning_horizon" in self.config:
+            horizon = min(horizon, self.config["planning_horizon"])
+        return horizon
+
     def run(self, timestep, feed_dict):
         self._sess.run(self.init_op)
 
