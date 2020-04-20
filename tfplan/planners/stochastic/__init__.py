@@ -57,6 +57,7 @@ class StochasticPlanner(Planner):
         self.loss = None
 
         self.init_op = None
+        self.warm_start_op = None
         self.train_op = None
 
         self.summaries = None
@@ -147,7 +148,13 @@ class StochasticPlanner(Planner):
         return horizon
 
     def run(self, timestep, feed_dict):
-        self._sess.run(self.init_op)
+        if timestep == 0:
+            self._sess.run(self.init_op)
+        else:
+            if self.warm_start_op:
+                self._sess.run(self.warm_start_op)
+            else:
+                self._sess.run(self.init_op)
 
         if self.summaries:
             logdir = os.path.join(self.config.get("logdir"), f"timestep={timestep}")

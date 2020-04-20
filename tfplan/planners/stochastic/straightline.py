@@ -58,6 +58,9 @@ class StraightLinePlanner(StochasticPlanner):
         self.policy = OpenLoopPolicy(self.compiler, horizon, parallel_plans=False)
         self.policy.build("planning")
 
+        if self.config["warm_start"]:
+            self.warm_start_op = self.policy._build_warm_start_op()
+
     def _build_trajectory_ops(self):
         with tf.name_scope("scenarios"):
             self.simulator = Simulator(self.compiler, self.policy, config=None)
