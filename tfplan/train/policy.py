@@ -66,6 +66,12 @@ class OpenLoopPolicy:
             self._policy_variables.append(var)
         self._policy_variables = tuple(self._policy_variables)
 
+    def _build_warm_start_op(self):
+        return tf.group(*[
+            tf.assign(policy_var[:, :-1, :], policy_var[:, 1:, :])
+            for policy_var in self._policy_variables
+        ])
+
     def __getitem__(self, i):
         return [var[i, ...] for var in self._policy_variables]
 
