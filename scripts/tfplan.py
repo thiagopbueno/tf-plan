@@ -23,8 +23,9 @@ import json
 import click
 import psutil
 
-from tuneconfig import TuneConfig
-from tuneconfig.experiment import Experiment
+import tuneconfig
+
+import tfplan
 
 
 @click.command()
@@ -131,48 +132,9 @@ def cli(**kwargs):
         }
         return fmt.get(param, param)
 
-    config_iterator = TuneConfig(config, format_fn)
+    config_iterator = tuneconfig.ConfigFactory(config, format_fn)
 
-    runner = Experiment(config_iterator, config["logdir"])
+    runner = tuneconfig.Experiment(config_iterator, config["logdir"])
     runner.start()
-    results = runner.run(run, config["num_samples"], config["num_workers"])
-
-
-def run(config):
-    import os
-    import time
-
-    # os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
-    os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
-    os.environ["OMP_NUM_THREADS"] = str(psutil.cpu_count(logical=False))
-
-    import rddlgym
-    import tfplan
-
-    import tensorflow as tf
-
-    tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
-
-    planner = config["planner"]
-    rddl = config["rddl"]
-    filepath = os.path.join(config["logdir"], "data.csv")
-
-    start = time.time()
-
-    env = rddlgym.make(rddl, mode=rddlgym.GYM, config=config)
-    env.set_horizon(config["horizon"])
-
-    planner = tfplan.make(planner, rddl, config)
-
-    with rddlgym.Runner(env, planner, debug=config["verbose"]) as runner:
-        trajectory = runner.run()
-        df = trajectory.save(filepath)
-        stats = df.describe()
-
-    planner.save_stats()
-
-    uptime = time.time() - start
-
-    pid = os.getpid()
-
-    return pid, uptime, stats
+    results = runner.run(
+        tfplan.run, config["num_samples"], config["num_workers"])

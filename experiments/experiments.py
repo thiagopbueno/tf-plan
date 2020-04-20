@@ -7,6 +7,8 @@ import click
 import psutil
 import tuneconfig
 
+import tfplan
+
 
 PLANNERS = ["straightline", "hindsight"]
 
@@ -91,7 +93,7 @@ def run(**kwargs):
         )
 
         analysis = tuneconfig.run_experiment(
-            tf_plan_runner,
+            tfplan.run,
             config_factory,
             logdir,
             num_samples=num_samples,
@@ -123,41 +125,6 @@ def plot(config, paths, show_fig, output):
 
     plotter = tuneconfig.ExperimentPlotter(analysis_lst)
     plotter.plot_chart_from_spec(config, show_fig=show_fig, filename=output)
-
-
-def tf_plan_runner(config):
-    # pylint: disable=import-outside-toplevel
-
-    import rddlgym
-    import tfplan
-
-    import tensorflow as tf
-
-    tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
-
-    # os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
-    os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
-    os.environ["OMP_NUM_THREADS"] = str(psutil.cpu_count(logical=False))
-
-    planner = config["planner"]
-    rddl = config["rddl"]
-    filepath = os.path.join(config["logdir"], "data.csv")
-
-    config["optimization"] = {
-        "optimizer": config["optimizer"],
-        "learning_rate": config["learning_rate"],
-    }
-
-    env = rddlgym.make(rddl, mode=rddlgym.GYM, config=config)
-    env.set_horizon(config["horizon"])
-
-    planner = tfplan.make(planner, rddl, config)
-
-    with rddlgym.Runner(env, planner, debug=config["verbose"]) as runner:
-        trajectory = runner.run()
-        trajectory.save(filepath)
-
-    planner.save_stats()
 
 
 if __name__ == "__main__":
