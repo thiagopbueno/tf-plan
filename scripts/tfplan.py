@@ -41,10 +41,16 @@ import tfplan
     show_default=True,
 )
 @click.option(
-    "--horizon", "-hr", default=40, help="Number of timesteps.", show_default=True
+    "--horizon", "-hr",
+    type=click.IntRange(min=1),
+    default=40,
+    help="Number of evaluation timesteps.",
+    show_default=True
 )
 @click.option(
-    "--epochs", "-e", default=500, help="Number of training epochs.", show_default=True
+    "--planning-horizon", "-phr",
+    type=click.IntRange(min=1),
+    help="Number of planning timesteps."
 )
 @click.option(
     "--optimizer",
@@ -136,5 +142,4 @@ def cli(**kwargs):
 
     runner = tuneconfig.Experiment(config_iterator, config["logdir"])
     runner.start()
-    results = runner.run(
-        tfplan.run, config["num_samples"], config["num_workers"])
+    runner.run(tfplan.run, config["num_samples"], config["num_workers"])

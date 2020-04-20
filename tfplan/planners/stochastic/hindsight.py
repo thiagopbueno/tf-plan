@@ -74,7 +74,8 @@ class HindsightPlanner(StochasticPlanner):
         self.base_policy.build("base_policy")
 
     def _build_scenario_policy_ops(self):
-        horizon = self.config["horizon"] - 1
+        horizon = self.horizon - 1
+
         self.scenario_policy = OpenLoopPolicy(
             self.compiler, horizon, parallel_plans=True
         )
@@ -155,11 +156,16 @@ class HindsightPlanner(StochasticPlanner):
             self._sess, self.simulator.samples
         )
 
+        steps_to_go = self.config["horizon"] - timestep
+        if "planning_horizon" in self.config:
+            steps_to_go = min(steps_to_go, self.config["planning_horizon"])
+        steps_to_go -= 1
+
         feed_dict = {
             self.initial_state: self._get_batch_initial_state(state),
             self.cell_noise: next_state_noise,
             self.simulator.noise: scenario_noise,
-            self.steps_to_go: self.config["horizon"] - timestep - 1,
+            self.steps_to_go: steps_to_go
         }
 
         self.run(timestep, feed_dict)
