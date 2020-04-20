@@ -68,6 +68,19 @@ class HindsightPlanner(StochasticPlanner):
         self._build_base_policy_ops()
         self._build_scenario_policy_ops()
 
+        if "warm_start" in self.config:
+            warm_start_base_policy = tf.group(*[
+                tf.assign(var1[:, 0, :],
+                          tf.reduce_mean(var2[:, 0, :], axis=0, keepdims=True))
+                for var1, var2 in zip(
+                    self.base_policy._policy_variables,
+                    self.scenario_policy._policy_variables)
+            ])
+            with tf.control_dependencies([warm_start_base_policy]):
+                warm_start_scenario_policy = self.scenario_policy._build_warm_start_op()
+            self.warm_start_op = tf.group(warm_start_base_policy,
+                                          warm_start_scenario_policy)
+
     def _build_base_policy_ops(self):
         horizon = 1
         self.base_policy = OpenLoopPolicy(self.compiler, horizon, parallel_plans=False)
