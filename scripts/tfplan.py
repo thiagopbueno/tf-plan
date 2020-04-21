@@ -34,13 +34,6 @@ import tfplan
 )
 @click.argument("rddl")
 @click.option(
-    "--batch-size",
-    "-b",
-    default=128,
-    help="Number of trajectories in a batch.",
-    show_default=True,
-)
-@click.option(
     "--horizon", "-hr",
     type=click.IntRange(min=1),
     default=40,
@@ -53,7 +46,7 @@ import tfplan
     help="Number of planning timesteps."
 )
 @click.option(
-    "--optimizer",
+    "--optimizer", "--opt",
     type=click.Choice(
         [
             "Adadelta",
@@ -76,15 +69,33 @@ import tfplan
     show_default=True,
 )
 @click.option(
-    "--num-samples",
-    "-n",
+    "--epochs", "-e",
+    type=click.IntRange(min=1),
+    default=500,
+    show_default=True,
+    help="Number of training epochs."
+)
+@click.option(
+    "--epoch-scheduler", "-sch",
+    nargs=3,
+    type=int,
+    help="Training epoch scheduler (start, final, delta)."
+)
+@click.option(
+    "--batch-size", "-b",
+    default=128,
+    help="Number of trajectories in a batch.",
+    show_default=True,
+)
+@click.option(
+    "--num-samples", "-ns",
     type=int,
     default=1,
     help="Number of runs.",
     show_default=True,
 )
 @click.option(
-    "--num-workers",
+    "--num-workers", "-nw",
     type=click.IntRange(min=1, max=psutil.cpu_count()),
     default=1,
     help=f"Number of worker processes (min=1, max={psutil.cpu_count()}).",
@@ -97,8 +108,16 @@ import tfplan
     help="Directory used for logging training summaries.",
     show_default=True,
 )
-@click.option("--config", type=click.File("r"), help="Configuration JSON file.")
-@click.option("-v", "--verbose", is_flag=True, help="Verbosity flag.")
+@click.option(
+    "--config", "-c",
+    type=click.File("r"),
+    help="Configuration JSON file."
+)
+@click.option(
+    "--verbose", "-v",
+    is_flag=True,
+    help="Verbosity flag."
+)
 @click.version_option()
 def cli(**kwargs):
     """

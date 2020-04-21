@@ -170,7 +170,7 @@ class HindsightPlanner(StochasticPlanner):
         )
 
         steps_to_go = self.config["horizon"] - timestep
-        if "planning_horizon" in self.config:
+        if self.config.get("planning_horizon"):
             steps_to_go = min(steps_to_go, self.config["planning_horizon"])
         steps_to_go -= 1
 
