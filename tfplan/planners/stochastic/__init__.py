@@ -143,18 +143,16 @@ class StochasticPlanner(Planner):
     @property
     def horizon(self):
         horizon = self.config["horizon"]
-        if "planning_horizon" in self.config:
+        if self.config.get("planning_horizon"):
             horizon = min(horizon, self.config["planning_horizon"])
         return horizon
 
     def run(self, timestep, feed_dict):
-        if timestep == 0:
+        if timestep == 0 or not self.warm_start_op:
             self._sess.run(self.init_op)
         else:
             if self.warm_start_op:
                 self._sess.run(self.warm_start_op)
-            else:
-                self._sess.run(self.init_op)
 
         if self.summaries:
             logdir = os.path.join(self.config.get("logdir"), f"timestep={timestep}")
