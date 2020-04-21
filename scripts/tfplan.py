@@ -41,6 +41,13 @@ import tfplan
     show_default=True,
 )
 @click.option(
+    "--epochs", "-e",
+    type=click.IntRange(min=1),
+    default=500,
+    show_default=True,
+    help="Number of training epochs."
+)
+@click.option(
     "--horizon", "-hr",
     type=click.IntRange(min=1),
     default=40,
