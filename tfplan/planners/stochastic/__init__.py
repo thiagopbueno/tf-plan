@@ -28,6 +28,7 @@ from rddl2tf.compilers import ReparameterizationCompiler
 
 from tfplan.planners.planner import Planner
 from tfplan.train.optimizer import ActionOptimizer
+from tfplan.train.scheduler import EpochScheduler
 
 
 class StochasticPlanner(Planner):
@@ -147,6 +148,14 @@ class StochasticPlanner(Planner):
             horizon = min(horizon, self.config["planning_horizon"])
         return horizon
 
+    def epochs(self, timestep):
+        if self.config.get("epoch_scheduler"):
+            scheduler = EpochScheduler(*self.config["epoch_scheduler"])
+            epochs = scheduler(timestep)
+        else:
+            epochs = self.config["epochs"]
+        return epochs
+
     def run(self, timestep, feed_dict):
         if timestep == 0 or not self.warm_start_op:
             self._sess.run(self.init_op)
@@ -161,7 +170,7 @@ class StochasticPlanner(Planner):
         run_id = self.config.get("run_id", 0)
         pid = os.getpid()
         position = run_id % self.config.get("num_workers", 1)
-        epochs = self.config["epochs"]
+        epochs = self.epochs(timestep)
         desc = f"(pid={pid}) Run #{run_id:<3d} / step={timestep:<3d}"
 
         with trange(
