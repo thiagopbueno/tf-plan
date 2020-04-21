@@ -58,7 +58,7 @@ class StraightLinePlanner(StochasticPlanner):
         self.policy = OpenLoopPolicy(self.compiler, horizon, parallel_plans=False)
         self.policy.build("planning")
 
-        if self.config["warm_start"]:
+        if "warm_start" in self.config:
             self.warm_start_op = self.policy._build_warm_start_op()
 
     def _build_trajectory_ops(self):

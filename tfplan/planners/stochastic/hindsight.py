@@ -68,7 +68,7 @@ class HindsightPlanner(StochasticPlanner):
         self._build_base_policy_ops()
         self._build_scenario_policy_ops()
 
-        if self.config["warm_start"]:
+        if "warm_start" in self.config:
             warm_start_base_policy = tf.group(*[
                 tf.assign(var1[:, 0, :],
                           tf.reduce_mean(var2[:, 0, :], axis=0, keepdims=True))
