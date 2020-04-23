@@ -18,6 +18,7 @@
 import abc
 import collections
 import os
+import time
 
 import numpy as np
 import pandas as pd
@@ -63,7 +64,7 @@ class StochasticPlanner(Planner):
 
         self.summaries = None
 
-        self.stats = {"loss": pd.DataFrame()}
+        self.stats = collections.defaultdict(pd.DataFrame)
 
     def build(self,):
         with self.graph.as_default():
@@ -173,23 +174,26 @@ class StochasticPlanner(Planner):
         epochs = self.epochs(timestep)
         desc = f"(pid={pid}) Run #{run_id:<3d} / step={timestep:<3d}"
 
-        with trange(
-            epochs, desc=desc, unit="epoch", position=position, leave=False
-        ) as t:
+        with trange(epochs, desc=desc, unit="epoch", position=position, leave=False) as t:
 
             losses = []
+            avg_total_rewards = []
 
             loss_ = self._sess.run(self.loss, feed_dict=feed_dict)
             losses.append(loss_)
+
+            start = time.time()
 
             for step in t:
                 self._sess.run(self.train_op, feed_dict=feed_dict)
 
                 loss_, avg_total_reward_ = self._sess.run(
-                    [self.loss, self.avg_total_reward], feed_dict=feed_dict
+                    [self.loss, self.avg_total_reward],
+                    feed_dict=feed_dict
                 )
 
                 losses.append(loss_)
+                avg_total_rewards.append(avg_total_reward_)
 
                 if self.summaries:
                     summary_ = self._sess.run(self.summaries, feed_dict=feed_dict)
@@ -199,7 +203,20 @@ class StochasticPlanner(Planner):
                     loss=f"{loss_:10.4f}", avg_total_reward=f"{avg_total_reward_:10.4f}"
                 )
 
+            uptime = time.time() - start
+
             self.stats["loss"][timestep] = pd.Series(losses)
+            self.stats["avg_total_reward"][timestep] = pd.Series(avg_total_rewards)
+
+        self.stats["trajectory"] = self.stats["trajectory"].append(
+            {
+                "loss": self.stats["loss"][timestep].iloc[-1],
+                "avg_total_reward": self.stats["avg_total_reward"][timestep].iloc[-1],
+                "epochs": epochs,
+                "uptime": uptime
+            },
+            ignore_index=True
+        )
 
         if self.summaries:
             writer.close()
