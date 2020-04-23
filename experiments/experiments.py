@@ -1,3 +1,6 @@
+#!/usr/bin/env python
+# coding: utf-8
+
 # pylint: disable=missing-docstring
 
 import datetime
@@ -15,10 +18,10 @@ PLANNERS = ["straightline", "hindsight"]
 
 def format_fn(param):
     fmt = {
-        "batch_size": "batch",
-        "horizon": "hr",
-        "learning_rate": "lr",
-        "optimizer": "opt",
+        # "batch_size": "batch",
+        # "horizon": "hr",
+        # "learning_rate": "lr",
+        # "optimizer": "opt",
         "num_samples": None,
         "num_workers": None,
         "config": None,
@@ -40,15 +43,14 @@ def cli():
 @click.argument("rddl")
 @click.argument("config", type=click.Path())
 @click.option(
-    "--num-samples",
-    "-n",
+    "--num-samples", "-ns",
     type=int,
     default=1,
     help="Number of runs.",
     show_default=True,
 )
 @click.option(
-    "--num-workers",
+    "--num-workers", "-nw",
     type=click.IntRange(min=1, max=psutil.cpu_count()),
     default=1,
     help=f"Number of worker processes (min=1, max={psutil.cpu_count()}).",
@@ -123,7 +125,7 @@ def plot(config, paths, show_fig, output):
         print()
         analysis_lst.append(analysis)
 
-    plotter = tuneconfig.ExperimentPlotter(analysis_lst)
+    plotter = tuneconfig.ExperimentPlotter(*analysis_lst)
     plotter.plot_chart_from_spec(config, show_fig=show_fig, filename=output)
 
 
