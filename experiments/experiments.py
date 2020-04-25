@@ -9,6 +9,7 @@ import os
 import click
 import psutil
 import tuneconfig
+from tuneconfig import experiment
 
 import tfplan
 
@@ -60,7 +61,14 @@ def cli():
     "--logdir",
     type=click.Path(),
     default=f"{datetime.date.today()}/",
-    help=f"Root directory for logging trial results.",
+    help="Root directory for logging trial results.",
+    show_default=True,
+)
+@click.option(
+    "--mode", "-m",
+    type=click.Choice(["APPEND", "OVERWRITE", "SKIP"], case_sensitive=False),
+    default="APPEND",
+    help="Execution mode (APPEND, OVERWRITE, SKIP).",
     show_default=True,
 )
 @click.option("-v", "--verbose", is_flag=True, help="Verbosity flag.")
@@ -100,6 +108,7 @@ def run(**kwargs):
             logdir,
             num_samples=num_samples,
             num_workers=num_workers,
+            mode=experiment.ExperimentMode[kwargs["mode"].upper()],
             verbose=verbose,
         )
         print()
