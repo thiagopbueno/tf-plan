@@ -22,7 +22,7 @@ def solve(config):
     planner = config["planner"]
 
     name = f"{rddl}-{planner}-run{run_id}"
-    group = config.get("group") or rddl
+    group = config.get("group") or rddl.replace(".rddl", "")
     job_type = config.get("job_type") or f"evaluation-{planner}"
 
     run = wandb.init(
@@ -119,8 +119,7 @@ def setup(name, **kwargs):
 
 
 @cli.command()
-@click.argument("rddl")
-@click.argument("planner", type=click.Choice(["hindsight", "straightline"]))
+@click.argument("rddls", nargs=-1)
 @click.option(
     "--group", "-g",
     help="Experiment group name."
@@ -143,27 +142,11 @@ def setup(name, **kwargs):
     help=f"Number of worker processes (min=1, max={psutil.cpu_count()}).",
     show_default=True,
 )
-def run(rddl, planner, **kwargs):
+def run(rddls, **kwargs):
     """Run online planner for the given `rddl` file."""
 
     num_samples = kwargs.pop("num_samples")
     num_workers = kwargs.pop("num_workers")
-
-    config = {
-        "rddl": rddl,
-        "planner": planner,
-        "horizon": 40,
-        "optimizer": "Adam",
-        "learning_rate": 5e-2,
-        "epochs": 500,
-        "batch_size": 64,
-        "warm_start": True,
-        "verbose": False,
-        "logdir": "results",
-        "logger": "wandb",
-        "job_type": kwargs.pop("job_type"),
-        "group": kwargs.pop("group"),
-    }
 
     def format_fn(param):
         fmt = {
@@ -179,12 +162,32 @@ def run(rddl, planner, **kwargs):
         }
         return fmt.get(param, param)
 
-    config_iterator = tuneconfig.ConfigFactory(config, format_fn)
+    config = {
+        "horizon": 40,
+        "optimizer": "Adam",
+        "learning_rate": 5e-2,
+        "epochs": 500,
+        "batch_size": 64,
+        "warm_start": True,
+        "verbose": False,
+        "logdir": "results",
+        "logger": "wandb",
+        "job_type": kwargs.pop("job_type"),
+        "group": kwargs.pop("group"),
+    }
 
-    runner = tuneconfig.Experiment(config_iterator, config["logdir"])
-    runner.start()
+    for rddl in rddls:
+        config["rddl"] = rddl
 
-    runner.run(solve, num_samples, num_workers)
+        for planner in ["hindsight", "straightline"]:
+            config["planner"] = planner
+
+            config_iterator = tuneconfig.ConfigFactory(config, format_fn)
+
+            runner = tuneconfig.Experiment(config_iterator, config["logdir"])
+            runner.start()
+
+            runner.run(solve, num_samples, num_workers)
 
 
 if __name__ == "__main__":
