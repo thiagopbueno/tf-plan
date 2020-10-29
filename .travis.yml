@@ -5,3 +5,4 @@ install:
   - pip install -U tf-plan
 script:
   - pytest tests/*.py -sv --disable-warnings 2>/dev/null
+after_success: tfplan --help
