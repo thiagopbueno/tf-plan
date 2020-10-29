@@ -2,6 +2,6 @@ language: python
 python:
   - "3.6"
 install:
-  - pip install -U -r requirements.txt
+  - pip install -U tf-plan
 script:
   - pytest tests/*.py -sv --disable-warnings 2>/dev/null
