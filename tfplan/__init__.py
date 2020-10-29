@@ -61,7 +61,8 @@ def run(config):
     planner = tfplan.make(planner, rddl, config)
 
     with rddlgym.Runner(env, planner, debug=config["verbose"]) as runner:
-        trajectory = runner.run()
+        trajectory, _ = runner.run()
         trajectory.save(filepath)
+        print(trajectory.as_dataframe())
 
-    planner.save_stats()
+    # planner.save_stats()
